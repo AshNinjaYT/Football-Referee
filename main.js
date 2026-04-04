@@ -30,7 +30,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 scene.fog = new THREE.FogExp2(0x87CEEB, 0.0001);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 30000); 
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 30000); 
 camera.rotation.order = 'YXZ'; 
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -50,7 +50,7 @@ window.addEventListener('resize', () => {
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
 dirLight.position.set(-2000, 3000, 2000);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 4096; 
@@ -61,6 +61,26 @@ dirLight.shadow.camera.top = 6000;
 dirLight.shadow.camera.bottom = -6000;
 dirLight.shadow.camera.far = 15000;
 scene.add(dirLight);
+
+// --- Stadium Floodlights (WOW factor) ---
+function addSpotlight(x, z) {
+    const spot = new THREE.SpotLight(0xffffff, 0.7);
+    spot.position.set(x, 4000, z);
+    spot.target.position.set(0, 0, 0);
+    spot.angle = 0.6;
+    spot.penumbra = 0.5;
+    spot.decay = 1.0;
+    spot.distance = 12000;
+    spot.castShadow = true;
+    spot.shadow.mapSize.width = 1024;
+    spot.shadow.mapSize.height = 1024;
+    scene.add(spot);
+    scene.add(spot.target);
+}
+addSpotlight(-5000, -6000);
+addSpotlight(5000, -6000);
+addSpotlight(-5000, 6000);
+addSpotlight(5000, 6000);
 
 // --- STADIUM FACTORY (PHASE 34) ---
 function buildStadium(theme) {
@@ -107,8 +127,25 @@ function buildStadium(theme) {
     track.rotation.x = -Math.PI / 2; track.position.y = -1; track.receiveShadow = true;
     floorGroup.add(track);
 
-    // 2. Regulation Grass Pitch
-    const pitchMat = new THREE.MeshPhongMaterial({ color: colors.pitch });
+    // 2. Regulation Grass Pitch (Striped Grass)
+    const grassCvs = document.createElement('canvas'); grassCvs.width=512; grassCvs.height=512;
+    const gCtx = grassCvs.getContext('2d');
+    gCtx.fillStyle = '#' + colors.pitch.toString(16).padStart(6, '0');
+    gCtx.fillRect(0,0,512,512);
+    // Add darker stripes
+    gCtx.fillStyle = 'rgba(0,0,0,0.12)';
+    for(let i=0; i<8; i++) {
+        if(i % 2 === 0) gCtx.fillRect(0, i*64, 512, 64);
+    }
+    const grassTex = new THREE.CanvasTexture(grassCvs);
+    grassTex.wrapS = THREE.RepeatWrapping; grassTex.wrapT = THREE.RepeatWrapping;
+    grassTex.repeat.set(1, 10); // Vertical stripes across the pitch
+
+    const pitchMat = new THREE.MeshStandardMaterial({ 
+        map: grassTex, 
+        roughness: 0.8,
+        metalness: 0.1
+    });
     const pitch = new THREE.Mesh(new THREE.PlaneGeometry(8000, 10000), pitchMat); 
     pitch.rotation.x = -Math.PI / 2; pitch.receiveShadow = true;
     floorGroup.add(pitch);
@@ -268,23 +305,91 @@ ballMesh.castShadow = true; ballMesh.receiveShadow = true;
 scene.add(ballMesh);
 state.ball.mesh = ballMesh;
 
-function createPlayerMesh(isLocal, role) {
+// ── Foul Marker (Triangle) ──────────────────────────────────────────────────
+const markerGeo = new THREE.ConeGeometry(40, 80, 3); // 3 sides = triangle
+const markerMat = new THREE.MeshPhongMaterial({ color: 0xffff00, emissive: 0xffaa00, emissiveIntensity: 0.5 });
+const foulMarker = new THREE.Mesh(markerGeo, markerMat);
+foulMarker.rotation.x = Math.PI; // Point down
+foulMarker.visible = false;
+scene.add(foulMarker);
+state.foulMarker = foulMarker;
+state.foulMarkerTimer = 0;
+
+// ── Skin tones palette ──────────────────────────────────────────────────────
+const SKIN_TONES = [0xffd5b0, 0xf0c27f, 0xc68642, 0x8d5524, 0xffcba4];
+
+function createPlayerMesh(isLocal, role, playerIndex, isCaptain) {
     const group = new THREE.Group();
-    const headMat = new THREE.MeshPhongMaterial({color: 0xffdbac});
-    const head = new THREE.Mesh(new THREE.SphereGeometry(20, 16, 16), headMat); head.position.y = 120;
-    
-    // Dynamic Team Colors (Phase 37)
+
+    // Randomize skin tone based on player index for variety
+    const skinIdx = playerIndex !== undefined ? (playerIndex * 3 + (isLocal ? 0 : 2)) % SKIN_TONES.length : Math.floor(Math.random() * SKIN_TONES.length);
+    const skinColor = SKIN_TONES[skinIdx];
+    const headMat = new THREE.MeshStandardMaterial({color: skinColor, roughness: 0.7});
+    const head = new THREE.Mesh(new THREE.SphereGeometry(20, 16, 16), headMat);
+    head.position.y = 120;
+
+    // Hair
+    const hairColors = [0x1a0a00, 0x4b2e0a, 0xd4a044, 0xb93a1e, 0xf5f5f5];
+    const hairColor = hairColors[(playerIndex || 0) % hairColors.length];
+    const hairMat = new THREE.MeshStandardMaterial({color: hairColor, roughness: 0.9});
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(21, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.52), hairMat);
+    hair.position.y = 127;
+    group.add(hair);
+
+    // Dynamic Team Colors
     const team = isLocal ? state.localTeam : state.awayTeam;
-    const shirtColor = role === 'GK' ? (isLocal ? 0x10b981 : 0xfacc15) : team.color;
-    
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(40, 50, 25), new THREE.MeshPhongMaterial({color: shirtColor})); torso.position.y = 80;
-    
-    const legGeo = new THREE.CylinderGeometry(8,8,55);
-    legGeo.translate(0, -27.5, 0); 
-    const legMat = new THREE.MeshPhongMaterial({color: 0xffffff});
+    const shirtColorHex = typeof team.color === 'string' ? parseInt(team.color.replace('#',''), 16) : team.color;
+    const finalShirtColor = role === 'GK' ? (isLocal ? 0x10b981 : 0xfacc15) : shirtColorHex;
+
+    // Torso / Jersey (High Quality Material)
+    const torso = new THREE.Mesh(
+        new THREE.BoxGeometry(40, 50, 25),
+        new THREE.MeshStandardMaterial({color: finalShirtColor, roughness: 0.5, metalness: 0.1})
+    );
+    torso.position.y = 80;
+
+    // GK — green gloves
+    if (role === 'GK') {
+        const gloveGeo = new THREE.BoxGeometry(10, 14, 12);
+        const gloveMat = new THREE.MeshStandardMaterial({color: 0x22c55e, roughness: 0.4});
+        const gloveL = new THREE.Mesh(gloveGeo, gloveMat); gloveL.position.set(-28, 85, 0);
+        const gloveR = new THREE.Mesh(gloveGeo, gloveMat); gloveR.position.set(28, 85, 0);
+        group.add(gloveL, gloveR);
+    }
+
+    // Shorts
+    const shortsColor = role === 'GK' ? 0x111111 : 0x1e293b;
+    const shorts = new THREE.Mesh(
+        new THREE.BoxGeometry(42, 22, 27),
+        new THREE.MeshStandardMaterial({color: shortsColor, roughness: 0.6})
+    );
+    shorts.position.y = 58;
+    group.add(shorts);
+
+    // Legs
+    const legGeo = new THREE.CylinderGeometry(8, 8, 55);
+    legGeo.translate(0, -27.5, 0);
+    const sockColor = role === 'GK' ? 0x111111 : 0xffffff;
+    const legMat = new THREE.MeshStandardMaterial({color: sockColor, roughness: 0.8});
     const legL = new THREE.Mesh(legGeo, legMat); legL.position.set(-10, 55, 0);
     const legR = new THREE.Mesh(legGeo, legMat); legR.position.set(10, 55, 0);
-    
+
+    // Boots
+    const bootMat = new THREE.MeshStandardMaterial({color: 0x111111, roughness: 0.3, metalness: 0.5});
+    const bootGeo = new THREE.BoxGeometry(14, 10, 18);
+    const bootL = new THREE.Mesh(bootGeo, bootMat); bootL.position.set(-10, 5, 5);
+    const bootR = new THREE.Mesh(bootGeo, bootMat); bootR.position.set(10, 5, 5);
+    group.add(bootL, bootR);
+
+    // Captain armband
+    if (isCaptain) {
+        const bandMat = new THREE.MeshStandardMaterial({color: 0xfacc15, roughness: 0.5});
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 10, 12), bandMat);
+        band.rotation.z = Math.PI / 2;
+        band.position.set(-28, 90, 0);
+        group.add(band);
+    }
+
     group.add(head, torso, legL, legR);
     group.children.forEach(c => { c.castShadow = true; c.receiveShadow = true; });
     return { mesh: group, legL: legL, legR: legR };
@@ -316,12 +421,38 @@ function initPlayers(mode) {
 
     const visitTactics = localTactics.map(t => ({hx: t.hx, hz: Math.abs(t.hz), role: t.role}));
     
+    // ── Skills by role ────────────────────────────────────────────────────────
+    const ROLE_SKILLS = {
+        GK:  { speed: 0.65, dribbling: 0.35, tackling: 0.80, aggression: 0.20, stamina: 1.0 },
+        DEF: { speed: 0.75, dribbling: 0.45, tackling: 0.82, aggression: 0.58, stamina: 1.0 },
+        MID: { speed: 0.85, dribbling: 0.72, tackling: 0.65, aggression: 0.42, stamina: 1.0 },
+        ATK: { speed: 0.98, dribbling: 0.88, tackling: 0.35, aggression: 0.38, stamina: 1.0 }
+    };
+
     const setupTeam = (tactics, isLocal) => {
         const teamData = isLocal ? state.localTeam : state.awayTeam;
         tactics.forEach((t, i) => {
-            const pMesh = createPlayerMesh(isLocal, t.role);
+            const isCaptain = (i === 1); // second player is captain (skip GK)
+            const pMesh = createPlayerMesh(isLocal, t.role, i, isCaptain);
             const rosterPlayer = teamData.players ? (teamData.players[i] || teamData.players[0]) : null;
-            
+
+            // Height variety per role and index
+            const heightScale = t.role === 'GK' ? 1.07 :
+                                t.role === 'DEF' ? 1.05 + (i % 3) * 0.03 :
+                                t.role === 'ATK' ? 1.02 + (i % 2) * 0.05 :
+                                0.92 + (i % 4) * 0.06;
+            pMesh.mesh.scale.set(1, heightScale, 1);
+
+            // Base skills from role + small random variation
+            const baseSkills = ROLE_SKILLS[t.role];
+            const skills = {
+                speed:      Math.min(1, baseSkills.speed      + (Math.random() - 0.5) * 0.14),
+                dribbling:  Math.min(1, baseSkills.dribbling  + (Math.random() - 0.5) * 0.18),
+                tackling:   Math.min(1, baseSkills.tackling   + (Math.random() - 0.5) * 0.18),
+                aggression: Math.min(1, baseSkills.aggression + (Math.random() - 0.5) * 0.22),
+                stamina: 1.0
+            };
+
             const pObj = {
                 mesh: pMesh.mesh,
                 legL: pMesh.legL,
@@ -329,15 +460,19 @@ function initPlayers(mode) {
                 team: teamData.name,
                 role: t.role,
                 name: rosterPlayer ? rosterPlayer.name : `Jugador ${i+1}`,
-                age: rosterPlayer ? rosterPlayer.age : 20 + Math.floor(Math.random()*15),
+                age:  rosterPlayer ? rosterPlayer.age  : 20 + Math.floor(Math.random()*15),
                 dorsal: rosterPlayer ? rosterPlayer.dorsal : (i + 1),
                 hx: t.hx, hz: t.hz,
                 x: t.hx, z: t.hz,
+                // Physics: velocity components
+                vx: 0, vz: 0,
                 hasBall: false, fallen: false, sliding: false, immune: 0,
-                yellowCards: 0
+                yellowCards: 0,
+                skills: skills,
+                isCaptain: isCaptain
             };
 
-            // Dynamic Dorsal Label (Phase 37)
+            // Dynamic Dorsal Label
             const canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = teamData.textColor || 'white';
@@ -345,8 +480,8 @@ function initPlayers(mode) {
             ctx.fillText(pObj.dorsal, 32, 48);
             const tex = new THREE.CanvasTexture(canvas);
             const label = new THREE.Mesh(new THREE.PlaneGeometry(25, 25), new THREE.MeshBasicMaterial({map: tex, transparent: true}));
-            label.position.set(0, 85, isLocal ? -13 : 13); // Back of torso
-            if(!isLocal) label.rotation.y = Math.PI; 
+            label.position.set(0, 85 / heightScale, isLocal ? -13 : 13);
+            if(!isLocal) label.rotation.y = Math.PI;
             pMesh.mesh.add(label);
 
             state.players.push(pObj);
@@ -525,12 +660,19 @@ const raycaster = new THREE.Raycaster();
 function hitTestFoul() {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     const meshes = [];
-    state.players.forEach(p => p.mesh.children.forEach(c => meshes.push(c)));
-    const intersects = raycaster.intersectObjects(meshes);
+    state.players.forEach(p => meshes.push(p.mesh));
+    // Intersection MUST be recursive to hit all parts (recursive: true)
+    const intersects = raycaster.intersectObjects(meshes, true);
     if(intersects.length > 0) {
-        const hitMesh = intersects[0].object;
-        const pObj = state.players.find(p => p.mesh === hitMesh.parent);
-        if(pObj) pauseFoul(pObj);
+        let currentHit = intersects[0].object;
+        // Search up the tree to find which player group this part belongs to
+        let foundPlayer = null;
+        while(currentHit.parent) {
+            foundPlayer = state.players.find(p => p.mesh === currentHit);
+            if(foundPlayer) break;
+            currentHit = currentHit.parent;
+        }
+        if(foundPlayer) pauseFoul(foundPlayer);
     }
 }
 
@@ -919,6 +1061,64 @@ function triggerCorner(isNorthOut) {
     }, 2500);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// VISIBLE FOUL SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+const foulFlashEl    = document.getElementById('foul-flash');
+const foulFlashTitle = document.getElementById('foul-flash-title');
+const foulFlashDesc  = document.getElementById('foul-flash-desc');
+const foulFlashIcon  = document.getElementById('foul-flash-icon');
+const tackleIndEl    = document.getElementById('tackle-indicator');
+const tackleIndText  = document.getElementById('tackle-indicator-text');
+const camShakeEl     = document.getElementById('cam-shake-overlay');
+
+let foulFlashTimer = null;
+let tackleIndTimer = null;
+
+/**
+ * Muestra alerta visual de falta en pantalla.
+ * @param {string} type  'hard' | 'soft'
+ * @param {string} foulerName  Nombre del que hizo la falta
+ * @param {string} victimName  Nombre de la víctima
+ */
+function showFoulFlash(type, foulerName, victimName) {
+    if (!foulFlashEl) return;
+    clearTimeout(foulFlashTimer);
+    foulFlashEl.className = type === 'hard' ? 'active hard' : 'active';
+    foulFlashIcon.innerText   = type === 'hard' ? '🚨' : '⚠️';
+    foulFlashTitle.innerText  = type === 'hard' ? '¡FALTA DURA!' : '¡FALTA!';
+    foulFlashDesc.innerText   = `${foulerName} sobre ${victimName}`;
+    foulFlashTimer = setTimeout(() => { foulFlashEl.className = ''; }, type === 'hard' ? 4000 : 2500);
+}
+
+/** Muestra texto sutil en la parte inferior de la pantalla */
+function showTackleIndicator(text) {
+    if (!tackleIndEl) return;
+    clearTimeout(tackleIndTimer);
+    tackleIndText.innerText = text;
+    tackleIndEl.className = 'active';
+    tackleIndTimer = setTimeout(() => { tackleIndEl.className = ''; }, 2000);
+}
+
+/** Efecto de viñeta roja (camera shake simulado) */
+function triggerCameraShake() {
+    if (!camShakeEl) return;
+    camShakeEl.className = '';
+    // Force reflow
+    void camShakeEl.offsetWidth;
+    camShakeEl.className = 'active';
+    setTimeout(() => { camShakeEl.className = ''; }, 500);
+    // Small positional shake on camera
+    const origX = state.x, origZ = state.z;
+    let shakes = 0;
+    const shakeInterval = setInterval(() => {
+        state.x = origX + (Math.random() - 0.5) * 60;
+        state.z = origZ + (Math.random() - 0.5) * 60;
+        shakes++;
+        if (shakes >= 6) { clearInterval(shakeInterval); state.x = origX; state.z = origZ; }
+    }, 40);
+}
+
 function updateEngine() {
     if (!state.paused) {
         const direction = new THREE.Vector3();
@@ -949,25 +1149,57 @@ function updateEngine() {
                 state.ball.mesh.rotation.x += 0.2;
             }
         } else {
+            // ── REAL BALL PHYSICS ─────────────────────────────────────────────────
             state.ball.x += state.ball.vx;
             state.ball.y += state.ball.vy;
             state.ball.z += state.ball.vz;
-            state.ball.vx *= 0.985; state.ball.vz *= 0.985; 
+
+            // Air resistance (lower on grass, more in air)
+            const onGround = state.ball.y <= 31;
+            const friction = onGround ? 0.972 : 0.994;
+            state.ball.vx *= friction;
+            state.ball.vz *= friction;
 
             if (state.ball.y > 30) {
-                state.ball.vy -= 1.8; 
-                if(state.ball.curve) {
-                    state.ball.vx += state.ball.curve; 
-                    state.ball.mesh.rotation.y += state.ball.curve * 0.1;
+                // Gravity — more realistic, heavier
+                state.ball.vy -= 2.2;
+                if (state.ball.curve) {
+                    state.ball.vx += state.ball.curve * 0.9;
+                    state.ball.mesh.rotation.y += state.ball.curve * 0.12;
                 }
             } else {
                 state.ball.y = 30;
-                if(state.ball.vy < -8) { state.ball.vy *= -0.55; } else { state.ball.vy = 0; state.ball.curve = 0; }
+                if (state.ball.vy < -6) {
+                    state.ball.vy *= -0.48; // Bounce with energy loss
+                    // Slow horizontal speed on bounce (grass friction)
+                    state.ball.vx *= 0.88;
+                    state.ball.vz *= 0.88;
+                } else {
+                    state.ball.vy = 0;
+                    state.ball.curve = 0;
+                    // Rolling deceleration on ground
+                    state.ball.vx *= 0.960;
+                    state.ball.vz *= 0.960;
+                }
             }
 
-            state.ball.mesh.position.y = state.ball.y; 
-            state.ball.mesh.rotation.x += state.ball.vz * 0.05;
-            state.ball.mesh.rotation.z -= state.ball.vx * 0.05;
+            const speed3d = Math.hypot(state.ball.vx, state.ball.vz);
+            state.ball.mesh.position.y = state.ball.y;
+            state.ball.mesh.rotation.x += state.ball.vz * 0.06;
+            state.ball.mesh.rotation.z -= state.ball.vx * 0.06;
+            // Ball spins faster when moving fast
+            state.ball.mesh.rotation.y += speed3d * 0.008;
+        }
+
+        // ── Animate Foul Marker ─────────────────────────────────────────────
+        if (state.foulMarker && state.foulMarker.visible) {
+            const now = Date.now();
+            if (now > state.foulMarkerTimer) {
+                state.foulMarker.visible = false;
+            } else {
+                state.foulMarker.rotation.y += 0.05;
+                state.foulMarker.position.y = 220 + Math.sin(now * 0.005) * 30;
+            }
         }
         
         if(!state.ball.owner) {
@@ -1008,28 +1240,82 @@ function updateEngine() {
 
                     if(p1.team !== p2.team) {
                         const dist = Math.hypot(p1.x - p2.x, p1.z - p2.z);
-                        if(dist < 180 && dist > 50) {
-                            if(!p1.sliding && !p2.sliding && Math.random() < 0.012) {
-                                let tackler = (Math.random() > 0.5) ? p1 : p2;
+
+                        // ── SOFT TACKLE zone (80-160u) ──────────────────────────────────
+                        if(dist < 160 && dist > 70 && !p1.sliding && !p2.sliding && Math.random() < 0.008) {
+                            // Determine who is the defender (chasing ball)
+                            const ballOwner = state.ball.owner;
+                            let tackler = p1, carrier = p2;
+                            if (ballOwner === p1 || p2.hasBall) { tackler = p2; carrier = p1; }
+
+                            // ── DRIBBLE CHECK ──────────────────────────────────────────────
+                            const dribble = carrier.skills ? carrier.skills.dribbling : 0.5;
+                            const tackle  = tackler.skills ? tackler.skills.tackling  : 0.5;
+                            const dribbleRoll = Math.random();
+
+                            if (carrier.hasBall && dribbleRoll < dribble - tackle * 0.6) {
+                                // ✅ REGATE EXITOSO — carrier evades
+                                const evadeAngle = Math.atan2(carrier.z - tackler.z, carrier.x - tackler.x);
+                                const evadeSide  = Math.random() > 0.5 ? 1 : -1;
+                                carrier.x += Math.cos(evadeAngle + evadeSide * Math.PI/2) * 60;
+                                carrier.z += Math.sin(evadeAngle + evadeSide * Math.PI/2) * 60;
+                                showTackleIndicator(`⚡ REGATE — ${carrier.name}`);
+                            } else {
+                                // 🔶 SOFT TACKLE — tackler slides
                                 tackler.sliding = true;
-                                setTimeout(() => { tackler.sliding = false; }, 1200);
+                                const aggress = tackler.skills ? tackler.skills.aggression : 0.4;
+                                // Reduced foul probability
+                                const isFoul  = (tackle < 0.50 && Math.random() < 0.3) || (aggress > 0.75 && Math.random() < aggress * 0.4);
+
+                                if (isFoul && carrier.hasBall) {
+                                    // Soft foul: show flash, show triangle marker
+                                    showFoulFlash('soft', tackler.name, carrier.name);
+                                    state.foulMarker.position.set(carrier.x, 220, carrier.z);
+                                    state.foulMarker.visible = true;
+                                    state.foulMarkerTimer = now + 4000; 
+                                } else {
+                                    showTackleIndicator(`🦵 ENTRADA — ${tackler.name}`);
+                                }
+                                setTimeout(() => { tackler.sliding = false; }, 1100);
                             }
                         }
-                        if(dist < 40) {
+
+                        // ── HARD COLLISION (dist < 45u) ────────────────────────────────
+                        if(dist < 45) {
                             p1.sliding = false; p2.sliding = false;
-                            p1.fallen = true; p2.fallen = true;
-                            p1.x += Math.random() > 0.5 ? 25 : -25;
-                            p2.x += Math.random() > 0.5 ? 25 : -25;
+                            p1.fallen = true;   p2.fallen = true;
+                            p1.vx = (p1.x - p2.x) * 0.6;  p1.vz = (p1.z - p2.z) * 0.6;
+                            p2.vx = (p2.x - p1.x) * 0.6;  p2.vz = (p2.z - p1.z) * 0.6;
                             p1.immune = now + 4000; p2.immune = now + 4000;
-                            
-                            if(p1.hasBall || p2.hasBall) { 
+
+                            if(p1.hasBall || p2.hasBall) {
                                 p1.hasBall = false; p2.hasBall = false;
-                                state.ball.owner = null; 
-                                state.ball.vx = 0; state.ball.vy = 0; state.ball.vz = 0; state.ball.curve = 0;
+                                state.ball.owner = null;
+                                state.ball.vx = (Math.random() - 0.5) * 25;
+                                state.ball.vy = 18 + Math.random() * 12;
+                                state.ball.vz = (Math.random() - 0.5) * 25;
+                                state.ball.curve = 0;
                             }
 
-                            setTimeout(() => { p1.fallen = false; }, 3000);
-                            setTimeout(() => { p2.fallen = false; }, 3000);
+                            // Hard collision → HARD FOUL
+                            const agP1 = p1.skills ? p1.skills.aggression : 0.5;
+                            const agP2 = p2.skills ? p2.skills.aggression : 0.5;
+                            const foulProb = Math.max(agP1, agP2);
+                            // Reduced probability for hard fouls
+                            if (!state.paused && Math.random() < foulProb * 0.45) {
+                                const fouler = agP1 > agP2 ? p1 : p2;
+                                const victim = fouler === p1 ? p2 : p1;
+                                triggerCameraShake();
+                                showFoulFlash('hard', fouler.name, victim.name);
+                                
+                                // Show Triangle Marker
+                                state.foulMarker.position.set(victim.x, 220, victim.z);
+                                state.foulMarker.visible = true;
+                                state.foulMarkerTimer = now + 5000;
+                            }
+
+                            setTimeout(() => { p1.fallen = false; p1.vx = 0; p1.vz = 0; }, 3200);
+                            setTimeout(() => { p2.fallen = false; p2.vx = 0; p2.vz = 0; }, 3200);
                         }
                     }
                 }
@@ -1092,14 +1378,31 @@ function updateEngine() {
                 const distT = Math.hypot(tx - p1.x, tz - p1.z);
                 if (distT > 15) {
                     const angle = Math.atan2(tz - p1.z, tx - p1.x);
-                    let baseSpeed = isChasing ? 4.5 + Math.random()*1.5 : 2;
-                    if(p1.sliding) baseSpeed += 3.5;
-                    if(p1.hasBall) baseSpeed = 3.5;
 
-                    p1.x += Math.cos(angle) * Math.min(baseSpeed, distT);
-                    p1.z += Math.sin(angle) * Math.min(baseSpeed, distT);
-                    
-                    p1.mesh.rotation.y = -angle - Math.PI/2; 
+                    // ── Real physics: acceleration & inertia ──────────────────────────
+                    const spSkill = p1.skills ? p1.skills.speed : 0.8;
+                    const stam    = p1.skills ? p1.skills.stamina : 1.0;
+                    let topSpeed  = isChasing ? (5.5 + spSkill * 2.5) * stam : (1.8 + spSkill * 1.2) * stam;
+                    if (p1.sliding)  topSpeed += 4.0;
+                    if (p1.hasBall)  topSpeed = (3.0 + spSkill * 1.2) * stam;
+                    if (p1.role === 'GK' && !isChasing) topSpeed = 1.5;
+
+                    // Accelerate gradually toward target direction
+                    const accel = p1.sliding ? 0.6 : 0.22;
+                    const targetVX = Math.cos(angle) * topSpeed;
+                    const targetVZ = Math.sin(angle) * topSpeed;
+                    p1.vx = p1.vx + (targetVX - p1.vx) * accel;
+                    p1.vz = p1.vz + (targetVZ - p1.vz) * accel;
+
+                    const step = Math.min(Math.hypot(p1.vx, p1.vz), distT);
+                    p1.x += (step > 0 ? p1.vx / Math.hypot(p1.vx, p1.vz) : 0) * step;
+                    p1.z += (step > 0 ? p1.vz / Math.hypot(p1.vx, p1.vz) : 0) * step;
+
+                    p1.mesh.rotation.y = -angle - Math.PI/2;
+                } else {
+                    // Decelerate with friction when near target
+                    p1.vx *= 0.78;
+                    p1.vz *= 0.78;
                 }
 
                 let heightClear = state.ball.y < 120; 
@@ -1177,39 +1480,58 @@ function updateEngine() {
             }
 
             if(p1.role !== 'GK' || (p1.hasBall || p1.fallen || p1.sliding)) {
+                // Apply inertia slide if fallen (player skids on the ground)
+                if (p1.fallen) {
+                    p1.vx *= 0.88;
+                    p1.vz *= 0.88;
+                    p1.x += p1.vx;
+                    p1.z += p1.vz;
+                }
+
                 p1.mesh.position.x = p1.x;
                 p1.mesh.position.z = p1.z;
                 
                 const distT = Math.hypot(p1.hx - p1.x, p1.hz - p1.z); 
                 
                 if (p1.fallen) {
-                    p1.mesh.rotation.x = Math.PI / 2;
+                    // Gradual dramatic fall rotation
+                    const targetRot = Math.PI / 2;
+                    p1.mesh.rotation.x += (targetRot - p1.mesh.rotation.x) * 0.25;
                     p1.mesh.position.y = 15;
-                    p1.legL.rotation.x = 0; p1.legR.rotation.x = 0;
+                    p1.legL.rotation.x = Math.sin(now * 0.008 + i) * 0.5;
+                    p1.legR.rotation.x = Math.cos(now * 0.008 + i) * 0.5;
                 } else if (p1.sliding) {
                     p1.mesh.rotation.x = Math.PI / 2.5;
                     p1.mesh.position.y = 15;
                     p1.legL.rotation.x = -Math.PI / 4; p1.legR.rotation.x = Math.PI / 4;
                 } else {
-                    p1.mesh.rotation.x = 0;
+                    // Smoothly rise back to standing
+                    p1.mesh.rotation.x += (0 - p1.mesh.rotation.x) * 0.2;
                     p1.mesh.position.y = p1.mesh.position.y > 0 && p1.role==='GK' ? p1.mesh.position.y : 0;
                     
-                    if (Math.abs(state.ball.vx) > 0.1 || Math.abs(state.ball.vz) > 0.1) { 
-                        p1.legL.rotation.x = Math.sin(now * 0.015 + i) * 0.8;
-                        p1.legR.rotation.x = Math.sin(now * 0.015 + i + Math.PI) * 0.8;
+                    // Leg swing speed based on player's own velocity magnitude (not ball)
+                    const pSpeed = Math.hypot(p1.vx, p1.vz);
+                    if (pSpeed > 0.3) {
+                        const freq = 0.010 + pSpeed * 0.002;
+                        p1.legL.rotation.x = Math.sin(now * freq + i) * Math.min(0.9, pSpeed * 0.18);
+                        p1.legR.rotation.x = Math.sin(now * freq + i + Math.PI) * Math.min(0.9, pSpeed * 0.18);
                     } else {
-                        p1.legL.rotation.x = 0; p1.legR.rotation.x = 0;
+                        p1.legL.rotation.x *= 0.8;
+                        p1.legR.rotation.x *= 0.8;
                     }
                 }
             } else {
                 p1.mesh.position.x = p1.x;
                 p1.mesh.position.z = p1.z;
                 
-                if (Math.abs(p1.hx - p1.x) > 1 || Math.abs(p1.hz - p1.z) > 1) {
-                    p1.legL.rotation.x = Math.sin(now * 0.015 + i) * 0.8;
-                    p1.legR.rotation.x = Math.sin(now * 0.015 + i + Math.PI) * 0.8;
+                const pSpeed = Math.hypot(p1.vx || 0, p1.vz || 0);
+                if (pSpeed > 0.3) {
+                    const freq = 0.010 + pSpeed * 0.002;
+                    p1.legL.rotation.x = Math.sin(now * freq + i) * Math.min(0.9, pSpeed * 0.18);
+                    p1.legR.rotation.x = Math.sin(now * freq + i + Math.PI) * Math.min(0.9, pSpeed * 0.18);
                 } else {
-                    p1.legL.rotation.x = 0; p1.legR.rotation.x = 0;
+                    p1.legL.rotation.x *= 0.8;
+                    p1.legR.rotation.x *= 0.8;
                 }
             }
         }

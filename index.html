@@ -121,9 +121,26 @@
         </div>
 
         <button id="btn-whistle" class="btn" style="display:none; position:absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: #facc15; color: black; z-index:9999; font-size: 1.5rem; border: 3px solid white; font-weight: bold; pointer-events: auto;">📣 PITAR REANUDACIÓN</button>
+
+        <!-- FOUL FLASH OVERLAY -->
+        <div id="foul-flash" style="display:none; position:absolute; inset:0; z-index:800; pointer-events:none; align-items:center; justify-content:center; flex-direction:column;">
+            <div id="foul-flash-box">
+                <div id="foul-flash-icon">⚠️</div>
+                <div id="foul-flash-title">¡FALTA!</div>
+                <div id="foul-flash-desc"></div>
+            </div>
+        </div>
+
+        <!-- TACKLE INDICATOR (visible text near center while tackle happens) -->
+        <div id="tackle-indicator" style="display:none; position:absolute; bottom:140px; left:50%; transform:translateX(-50%); pointer-events:none; z-index:700;">
+            <div id="tackle-indicator-text"></div>
+        </div>
+
+        <!-- CAMERA SHAKE overlay (red vignette flash) -->
+        <div id="cam-shake-overlay" style="display:none; position:absolute; inset:0; pointer-events:none; z-index:600; border: 12px solid rgba(239,68,68,0.0); border-radius:0;"></div>
     </div>
 
-    <script src="main.js?v=5.0"></script>
+    <script src="main.js?v=6.0"></script>
 </body>
 
 </html>
