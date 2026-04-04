@@ -1,0 +1,64 @@
+/* RESET BASE */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background-color: #0f172a; overflow: hidden; user-select: none; }
+
+/* NUEVO MENÚ PRE-PARTIDO DUAL (OVERLAY) */
+#start-overlay {
+    position: absolute; inset: 0; 
+    background: radial-gradient(circle at center, #1e293b 0%, #080b12 100%);
+    z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center;
+}
+.menu-container { display: flex; align-items: center; justify-content: center; gap: 80px; max-width: 1200px; width: 100%; }
+.menu-options { text-align: left; }
+.logo-3d { font-size: 6rem; margin-bottom: 1rem; filter: drop-shadow(0px 10px 10px black); }
+.menu-options h1 { color: #34d399; font-size: 4rem; margin-bottom: 2rem; font-weight: 900; text-shadow: 0 10px 30px rgba(16, 185, 129, 0.5); }
+.menu-options p { font-size: 1.4rem; color: #cbd5e1; max-width: 550px; margin-bottom: 3rem; line-height: 1.8;}
+.buttons-layout { display: flex; flex-direction: column; gap: 20px; }
+.btn {
+    padding: 1.5rem 3rem; background: #10b981; color: white; border: none; text-align: center;
+    border-radius: 99px; font-size: 1.3rem; cursor: pointer; font-weight: bold; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+}
+.btn:hover { background: #059669; transform: scale(1.05); }
+
+#game-over { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; }
+
+/* REFEREE CSS MODEL MENU */
+.referee-model-menu {
+    position: relative; width: 200px; height: 500px;
+    transform: scale(1.2); filter: drop-shadow(0 20px 30px rgba(0,0,0,0.9));
+    animation: floating 4s infinite ease-in-out;
+}
+@keyframes floating { 0%,100% { transform: scale(1.2) translateY(0); } 50% { transform: scale(1.2) translateY(-30px); } }
+.referee-model-menu .c-head { position: absolute; background: #ffdbac; border-radius: 50%; border: 6px solid #333; width: 120px; height: 120px; left: 40px; top: 0; z-index: 2;}
+.referee-model-menu .c-torso { position: absolute; width: 110px; height: 160px; top: 120px; left: 45px; border-radius: 15px; z-index: 1;}
+.referee-model-menu .c-leg { position: absolute; background: white; width: 35px; height: 180px; top: 280px; }
+.referee-model-menu .c-leg.left { left: 45px; } .referee-model-menu .c-leg.right { right: 45px; }
+.referee-stripes { background: repeating-linear-gradient(90deg, #111 0px, #111 20px, #fff 20px, #fff 40px) !important; border: 5px solid #111; }
+
+/* HUD SYSTEM */
+#hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+#crosshair { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 4px rgba(0,0,0,0.8); pointer-events: none; }
+
+#top-bar { position: absolute; top: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; }
+#respect-panel { background: rgba(0,0,0,0.6); padding: 15px 25px; border-radius: 10px; color: white; display: flex; align-items: center; gap: 15px; font-weight: bold; border: 2px solid #334155; pointer-events: auto; }
+.progress-bar { width: 200px; height: 12px; background: #1e293b; border-radius: 99px; overflow: hidden; }
+#respect-fill { width: 100%; height: 100%; background: #10b981; transition: width 0.3s; }
+#match-timer { background: rgba(0,0,0,0.8); padding: 10px 30px; font-size: 2.5rem; font-weight: bold; color: white; border-radius: 15px; border: 3px solid #f8fafc; text-shadow: 0 0 10px rgba(255,255,255,0.5); font-family: monospace; letter-spacing: 2px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+#scoreboard { background: rgba(15, 23, 42, 0.9); border: 2px solid #334155; border-radius: 10px; display: flex; align-items: center; font-size: 1.5rem; font-weight: bold; color: white; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+.team.local { background: #3b82f6; padding: 15px 20px; } .team.visitante { background: #ef4444; padding: 15px 20px; } .score { padding: 0 30px; font-size: 2rem; background: #0f172a;}
+
+/* MODAL Y ALERTAS */
+#foul-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e293b; padding: 2.5rem; border-radius: 1.5rem; color: white; text-align: center; border: 2px solid #334155; box-shadow: 0 10px 50px rgba(0,0,0,0.8); pointer-events: auto; width: 500px; }
+#foul-modal h2 { color: #ef4444; margin-bottom: 1rem; font-size: 2.2rem; }
+#foul-player-info { margin-bottom: 2rem; font-size: 1.3rem; color: #94a3b8; }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+.action-btn { padding: 1rem; border: none; border-radius: 0.5rem; font-weight: bold; cursor: pointer; color: white; font-size: 1.1rem; }
+.action-btn:hover { filter: brightness(1.2); transform: scale(1.02); }
+.action-btn.none { background: #3b82f6; } .action-btn.foul { background: #8b5cf6; } .action-btn.yellow { background: #eab308; color: black; } .action-btn.red { background: #ef4444; }
+
+#goal-alert { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; z-index: 50; }
+.flash-text { font-size: 8rem; color: #facc15; text-shadow: 0 10px 50px rgba(0,0,0,0.9), 0 0 20px red; animation: pulse 0.8s infinite; font-style: italic; font-weight: 900; letter-spacing: 5px; -webkit-text-stroke: 4px black;}
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+/* CANVAS DE THREE.JS */
+canvas { display: block; width: 100vw; height: 100vh; }
