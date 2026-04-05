@@ -1135,33 +1135,37 @@ function updateEngine() {
         state.z = Math.max(-4900, Math.min(4900, state.z));
 
         if(state.ball.owner) {
-            state.ball.x = state.ball.owner.x;
-            let isLoc = state.ball.owner.team.includes('Azul'); 
-            state.ball.z = isLoc ? state.ball.owner.z + 70 : state.ball.owner.z - 70;
+            const p = state.ball.owner;
+            state.ball.x = p.x;
+            const isLoc = p.team.includes('Azul'); 
+            
+            // ── DRIBBLING ANIMATION ──────────────────────────────────
+            const pSpeed = Math.hypot(p.vx || 0, p.vz || 0);
+            const dribbleFreq = 0.012;
+            const bounceZ = (Math.sin(Date.now() * dribbleFreq) + 1) * (15 + pSpeed * 2);
+            state.ball.z = isLoc ? p.z + 55 + bounceZ : p.z - 55 - bounceZ;
+            
             state.ball.vx = 0; state.ball.vy = 0; state.ball.vz = 0; state.ball.curve = 0;
             
-            if(state.ball.owner.role === 'GK') {
+            if(p.role === 'GK') {
                 state.ball.y = 80;
                 state.ball.mesh.position.y = 80; 
             } else {
-                state.ball.y = 30;
-                state.ball.mesh.position.y = 30; 
-                state.ball.mesh.rotation.x += 0.2;
+                state.ball.y = 30 + (Math.sin(Date.now() * dribbleFreq * 2) * 10); 
+                state.ball.mesh.position.y = state.ball.y; 
+                state.ball.mesh.rotation.x += 0.25;
             }
         } else {
-            // ── REAL BALL PHYSICS ─────────────────────────────────────────────────
             state.ball.x += state.ball.vx;
             state.ball.y += state.ball.vy;
             state.ball.z += state.ball.vz;
 
-            // Air resistance (lower on grass, more in air)
             const onGround = state.ball.y <= 31;
             const friction = onGround ? 0.972 : 0.994;
             state.ball.vx *= friction;
             state.ball.vz *= friction;
 
             if (state.ball.y > 30) {
-                // Gravity — more realistic, heavier
                 state.ball.vy -= 2.2;
                 if (state.ball.curve) {
                     state.ball.vx += state.ball.curve * 0.9;
@@ -1170,14 +1174,12 @@ function updateEngine() {
             } else {
                 state.ball.y = 30;
                 if (state.ball.vy < -6) {
-                    state.ball.vy *= -0.48; // Bounce with energy loss
-                    // Slow horizontal speed on bounce (grass friction)
+                    state.ball.vy *= -0.48;
                     state.ball.vx *= 0.88;
                     state.ball.vz *= 0.88;
                 } else {
                     state.ball.vy = 0;
                     state.ball.curve = 0;
-                    // Rolling deceleration on ground
                     state.ball.vx *= 0.960;
                     state.ball.vz *= 0.960;
                 }
@@ -1187,13 +1189,11 @@ function updateEngine() {
             state.ball.mesh.position.y = state.ball.y;
             state.ball.mesh.rotation.x += state.ball.vz * 0.06;
             state.ball.mesh.rotation.z -= state.ball.vx * 0.06;
-            // Ball spins faster when moving fast
             state.ball.mesh.rotation.y += speed3d * 0.008;
         }
 
-        // ── Animate Foul Marker ─────────────────────────────────────────────
+        const now = Date.now();
         if (state.foulMarker && state.foulMarker.visible) {
-            const now = Date.now();
             if (now > state.foulMarkerTimer) {
                 state.foulMarker.visible = false;
             } else {
@@ -1203,23 +1203,19 @@ function updateEngine() {
         }
         
         if(!state.ball.owner) {
-            // GOAL / GOAL KICK / CORNER Detection (Re-calibrated to 5050/4050)
             if (state.ball.z < -5050) { 
                 if (Math.abs(state.ball.x) < 400 && state.ball.y < 350) { triggerGoal('visitante'); } 
                 else { 
-                    // North end: local defends. If LOCAL last touched → corner for away. Else goal kick.
                     if (state.ball.lastTouch && state.ball.lastTouch.team === state.localTeam.name) triggerCorner(true);
                     else triggerGoalKick(true);
                 }
             } else if (state.ball.z > 5050) { 
                 if (Math.abs(state.ball.x) < 400 && state.ball.y < 350) { triggerGoal('local'); }
                 else { 
-                    // South end: away defends. If AWAY last touched → corner for local. Else goal kick.
                     if (state.ball.lastTouch && state.ball.lastTouch.team === state.awayTeam.name) triggerCorner(false);
                     else triggerGoalKick(false);
                 }
             }
-            // SIDE BOUNDARIES (THROW-IN)
             if (state.ball.x > 4050 || state.ball.x < -4050) {
                  triggerThrowIn(state.ball.x > 0);
             }
@@ -1228,7 +1224,21 @@ function updateEngine() {
         state.ball.mesh.position.x = state.ball.x;
         state.ball.mesh.position.z = state.ball.z;
 
-        const now = Date.now();
+
+        
+        // ── ENCONTRAR JUGADORES MÁS CERCANOS (Fase 42: Reducción de Caos) ──
+        const bx_ref = state.ball.owner ? state.ball.owner.x : state.ball.x;
+        const bz_ref = state.ball.owner ? state.ball.owner.z : state.ball.z;
+        let pChaseLocal = null, dMinLocal = Infinity;
+        let pChaseAway  = null, dMinAway  = Infinity;
+        
+        state.players.forEach(p => {
+             if(p.fallen || p.sliding) return;
+             const d = Math.hypot(p.x - bx_ref, p.z - bz_ref);
+             if(p.team === state.localTeam.name) { if(d < dMinLocal) { dMinLocal = d; pChaseLocal = p; } }
+             else { if(d < dMinAway) { dMinAway = d; pChaseAway = p; } }
+        });
+
         for(let i=0; i<state.players.length; i++) {
             const p1 = state.players[i];
             let immune1 = p1.immune && now < p1.immune;
@@ -1241,34 +1251,34 @@ function updateEngine() {
                     if(p1.team !== p2.team) {
                         const dist = Math.hypot(p1.x - p2.x, p1.z - p2.z);
 
-                        // ── SOFT TACKLE zone (80-160u) ──────────────────────────────────
                         if(dist < 160 && dist > 70 && !p1.sliding && !p2.sliding && Math.random() < 0.008) {
-                            // Determine who is the defender (chasing ball)
                             const ballOwner = state.ball.owner;
                             let tackler = p1, carrier = p2;
                             if (ballOwner === p1 || p2.hasBall) { tackler = p2; carrier = p1; }
 
-                            // ── DRIBBLE CHECK ──────────────────────────────────────────────
                             const dribble = carrier.skills ? carrier.skills.dribbling : 0.5;
                             const tackle  = tackler.skills ? tackler.skills.tackling  : 0.5;
                             const dribbleRoll = Math.random();
 
                             if (carrier.hasBall && dribbleRoll < dribble - tackle * 0.6) {
-                                // ✅ REGATE EXITOSO — carrier evades
+                                // ✅ REGATE VISIBLE — Trayectoria de evasión más larga
                                 const evadeAngle = Math.atan2(carrier.z - tackler.z, carrier.x - tackler.x);
                                 const evadeSide  = Math.random() > 0.5 ? 1 : -1;
-                                carrier.x += Math.cos(evadeAngle + evadeSide * Math.PI/2) * 60;
-                                carrier.z += Math.sin(evadeAngle + evadeSide * Math.PI/2) * 60;
+                                const dodgeAmt   = 160; // De 60 a 160 para visibilidad
+                                carrier.x += Math.cos(evadeAngle + evadeSide * Math.PI/2) * dodgeAmt;
+                                carrier.z += Math.sin(evadeAngle + evadeSide * Math.PI/2) * dodgeAmt;
+                                
+                                // Empujar el balón un poco más allá para el efecto visual
+                                state.ball.x = carrier.x + Math.cos(evadeAngle) * 40;
+                                state.ball.z = carrier.z + Math.sin(evadeAngle) * 40;
+                                
                                 showTackleIndicator(`⚡ REGATE — ${carrier.name}`);
                             } else {
-                                // 🔶 SOFT TACKLE — tackler slides
                                 tackler.sliding = true;
                                 const aggress = tackler.skills ? tackler.skills.aggression : 0.4;
-                                // Reduced foul probability
                                 const isFoul  = (tackle < 0.50 && Math.random() < 0.3) || (aggress > 0.75 && Math.random() < aggress * 0.4);
 
                                 if (isFoul && carrier.hasBall) {
-                                    // Soft foul: show flash, show triangle marker
                                     showFoulFlash('soft', tackler.name, carrier.name);
                                     state.foulMarker.position.set(carrier.x, 220, carrier.z);
                                     state.foulMarker.visible = true;
@@ -1280,48 +1290,59 @@ function updateEngine() {
                             }
                         }
 
-                        // ── HARD COLLISION (dist < 45u) ────────────────────────────────
-                        if(dist < 45) {
-                            p1.sliding = false; p2.sliding = false;
-                            p1.fallen = true;   p2.fallen = true;
-                            p1.vx = (p1.x - p2.x) * 0.6;  p1.vz = (p1.z - p2.z) * 0.6;
-                            p2.vx = (p2.x - p1.x) * 0.6;  p2.vz = (p2.z - p1.z) * 0.6;
-                            p1.immune = now + 4000; p2.immune = now + 4000;
+                        if(dist < 80) {
+                            // Repulsión reforzada (exponencial inversa)
+                            const force = Math.min(12, (85 - dist) * 0.35);
+                            const repelX = (p1.x - p2.x) / dist * force;
+                            const repelZ = (p1.z - p2.z) / dist * force;
+                            p1.vx = (p1.vx || 0) + repelX * 0.5;
+                            p1.vz = (p1.vz || 0) + repelZ * 0.5;
+                            p2.vx = (p2.vx || 0) - repelX * 0.5;
+                            p2.vz = (p2.vz || 0) - repelZ * 0.5;
+                            p1.x += repelX; p1.z += repelZ;
+                            p2.x -= repelX; p2.z -= repelZ;
 
-                            if(p1.hasBall || p2.hasBall) {
-                                p1.hasBall = false; p2.hasBall = false;
-                                state.ball.owner = null;
-                                state.ball.vx = (Math.random() - 0.5) * 25;
-                                state.ball.vy = 18 + Math.random() * 12;
-                                state.ball.vz = (Math.random() - 0.5) * 25;
-                                state.ball.curve = 0;
-                            }
-
-                            // Hard collision → HARD FOUL
-                            const agP1 = p1.skills ? p1.skills.aggression : 0.5;
-                            const agP2 = p2.skills ? p2.skills.aggression : 0.5;
-                            const foulProb = Math.max(agP1, agP2);
-                            // Reduced probability for hard fouls
-                            if (!state.paused && Math.random() < foulProb * 0.45) {
-                                const fouler = agP1 > agP2 ? p1 : p2;
-                                const victim = fouler === p1 ? p2 : p1;
-                                triggerCameraShake();
-                                showFoulFlash('hard', fouler.name, victim.name);
+                            if(dist < 42) {
+                                const p1Speed = Math.hypot(p1.vx || 0, p1.vz || 0);
+                                const p2Speed = Math.hypot(p2.vx || 0, p2.vz || 0);
                                 
-                                // Show Triangle Marker
-                                state.foulMarker.position.set(victim.x, 220, victim.z);
-                                state.foulMarker.visible = true;
-                                state.foulMarkerTimer = now + 5000;
-                            }
+                                if (p1Speed > 4.5 || p2Speed > 4.5 || Math.random() < 0.15) {
+                                    p1.sliding = false; p2.sliding = false;
+                                    p1.fallen = true;   p2.fallen = true;
+                                    p1.vx = (p1.x - p2.x) * 0.8;  p1.vz = (p1.z - p2.z) * 0.8;
+                                    p2.vx = (p2.x - p1.x) * 0.8;  p2.vz = (p2.z - p1.z) * 0.8;
+                                    p1.immune = now + 4000; p2.immune = now + 4000;
 
-                            setTimeout(() => { p1.fallen = false; p1.vx = 0; p1.vz = 0; }, 3200);
-                            setTimeout(() => { p2.fallen = false; p2.vx = 0; p2.vz = 0; }, 3200);
+                                    if(p1.hasBall || p2.hasBall) {
+                                        p1.hasBall = false; p2.hasBall = false;
+                                        state.ball.owner = null;
+                                        state.ball.vx = (Math.random() - 0.5) * 35;
+                                        state.ball.vy = 20 + Math.random() * 15;
+                                        state.ball.vz = (Math.random() - 0.5) * 35;
+                                        state.ball.curve = 0;
+                                    }
+
+                                    const agP1 = p1.skills ? p1.skills.aggression : 0.5;
+                                    const agP2 = p2.skills ? p2.skills.aggression : 0.5;
+                                    const foulProb = Math.max(agP1, agP2);
+                                    if (!state.paused && Math.random() < foulProb * 0.40) {
+                                        const fouler = agP1 > agP2 ? p1 : p2;
+                                        const victim = fouler === p1 ? p2 : p1;
+                                        triggerCameraShake();
+                                        showFoulFlash('hard', fouler.name, victim.name);
+                                        state.foulMarker.position.set(victim.x, 220, victim.z);
+                                        state.foulMarker.visible = true;
+                                        state.foulMarkerTimer = now + 5000;
+                                    }
+
+                                    setTimeout(() => { p1.fallen = false; p1.vx = 0; p1.vz = 0; }, 3200);
+                                    setTimeout(() => { p2.fallen = false; p2.vx = 0; p2.vz = 0; }, 3200);
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            if (!p1.fallen) {
                 const bx = state.ball.owner ? state.ball.owner.x : state.ball.x;
                 const bz = state.ball.owner ? state.ball.owner.z : state.ball.z;
                 const distToBall = Math.hypot(bx - p1.x, bz - p1.z);
@@ -1329,123 +1350,91 @@ function updateEngine() {
 
                 if (p1.role === 'GK') {
                     if (p1.hasBall) {
-                        isChasing = false; 
-                        tx = p1.x; tz = p1.z; 
+                        isChasing = false; tx = p1.x; tz = p1.z; 
                     } else {
                         tx = Math.max(-800, Math.min(800, state.ball.x)); tz = p1.hz; isChasing = true; 
                     }
-                    
                     if (!p1.hasBall && distToBall < 200 && state.ball.y > 60 && state.ball.y < 400) {
                         p1.mesh.position.y = state.ball.y - 40; 
-                        if (distToBall < 100) state.ball.lastTouch = p1; // Deflection touch
+                        if (distToBall < 100) state.ball.lastTouch = p1;
                     } else if (!p1.hasBall && !p1.fallen && !p1.sliding) {
                         p1.mesh.position.y = 0;
-                        if (distToBall < 80) state.ball.lastTouch = p1; // Low deflection touch
+                        if (distToBall < 80) state.ball.lastTouch = p1;
                     }
-                    
                 } else if(p1.hasBall) {
                     const tgtZ = p1.team === state.localTeam.name ? 5000 : -5000;
-                    tx = p1.x + (Math.random() > 0.5 ? 200 : -200);
-                    tz = tgtZ; 
-                    isChasing = false; 
+                    tx = p1.x + (Math.random() > 0.5 ? 200 : -200); tz = tgtZ; isChasing = false; 
                 } else {
-                    const isLocal = p1.team === state.localTeam.name;
-                    const ballAdvance = isLocal ? state.ball.z : -state.ball.z; 
-                    
-                    if (ballAdvance > 1500) { tz += isLocal ? 2000 : -2000; } 
-                    else if (ballAdvance > -500) { tz += isLocal ? 800 : -800; }
-                    else if (ballAdvance < -1500) { tz -= isLocal ? 1500 : -1500; } 
-                    
-                    if (p1.role === 'ATK') { tz += isLocal ? 800 : -800; tx += Math.random() > 0.5 ? 400 : -400; } 
-                    if (p1.role === 'DEF') { tz -= isLocal ? 600 : -600; } 
-
+                    const isPlayerChase = (p1 === pChaseLocal || p1 === pChaseAway);
                     const sameTeamHasBall = state.ball.owner && state.ball.owner.team === p1.team;
-                    if (distToBall < 1800 && !sameTeamHasBall) { 
+                    
+                    if (distToBall < 1800 && !sameTeamHasBall && isPlayerChase) { 
                         tx = state.ball.x; tz = state.ball.z; isChasing = true; 
-                    }
-
-                    if (state.ball.owner && state.ball.owner.role === 'GK') {
-                        const distToGK = Math.hypot(p1.x - state.ball.owner.x, p1.z - state.ball.owner.z);
-                        if (distToGK < 800) {
-                             const repelAng = Math.atan2(p1.z - state.ball.owner.z, p1.x - state.ball.owner.x);
-                             tx = state.ball.owner.x + Math.cos(repelAng) * 900;
-                             tz = state.ball.owner.z + Math.sin(repelAng) * 900;
-                             isChasing = false;
-                        }
+                    } else if (distToBall < 500 && !sameTeamHasBall) {
+                        // Modo "Marcar": se acercan pero no persiguen locamente si no son los principales
+                        const markAngle = Math.atan2(state.ball.z - p1.z, state.ball.x - p1.x);
+                        tx = state.ball.x - Math.cos(markAngle) * 250;
+                        tz = state.ball.z - Math.sin(markAngle) * 250;
+                        isChasing = false;
                     }
                 }
 
                 const distT = Math.hypot(tx - p1.x, tz - p1.z);
                 if (distT > 15) {
                     const angle = Math.atan2(tz - p1.z, tx - p1.x);
-
-                    // ── Real physics: acceleration & inertia ──────────────────────────
                     const spSkill = p1.skills ? p1.skills.speed : 0.8;
                     const stam    = p1.skills ? p1.skills.stamina : 1.0;
                     let topSpeed  = isChasing ? (5.5 + spSkill * 2.5) * stam : (1.8 + spSkill * 1.2) * stam;
                     if (p1.sliding)  topSpeed += 4.0;
                     if (p1.hasBall)  topSpeed = (3.0 + spSkill * 1.2) * stam;
                     if (p1.role === 'GK' && !isChasing) topSpeed = 1.5;
-
-                    // Accelerate gradually toward target direction
                     const accel = p1.sliding ? 0.6 : 0.22;
-                    const targetVX = Math.cos(angle) * topSpeed;
-                    const targetVZ = Math.sin(angle) * topSpeed;
-                    p1.vx = p1.vx + (targetVX - p1.vx) * accel;
-                    p1.vz = p1.vz + (targetVZ - p1.vz) * accel;
-
+                    p1.vx = (p1.vx || 0) + (Math.cos(angle) * topSpeed - (p1.vx || 0)) * accel;
+                    p1.vz = (p1.vz || 0) + (Math.sin(angle) * topSpeed - (p1.vz || 0)) * accel;
                     const step = Math.min(Math.hypot(p1.vx, p1.vz), distT);
                     p1.x += (step > 0 ? p1.vx / Math.hypot(p1.vx, p1.vz) : 0) * step;
                     p1.z += (step > 0 ? p1.vz / Math.hypot(p1.vx, p1.vz) : 0) * step;
-
-                    p1.mesh.rotation.y = -angle - Math.PI/2;
+                    const targetRotY = -angle - Math.PI/2;
+                    let diff = targetRotY - p1.mesh.rotation.y;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    p1.mesh.rotation.y += diff * 0.15; // Suavizado de giro
                 } else {
-                    // Decelerate with friction when near target
-                    p1.vx *= 0.78;
-                    p1.vz *= 0.78;
+                    p1.vx *= 0.78; p1.vz *= 0.78;
                 }
 
                 let heightClear = state.ball.y < 120; 
                 if (p1.role === 'GK') heightClear = state.ball.y < 400; 
 
                 if (distToBall < 60 && isChasing && !state.ball.owner && heightClear && !immune1) {
-                    state.ball.lastTouch = p1;
-                    state.ball.throwInTeam = null; // Ball touched, throw-ins no longer "direct"
+                    state.ball.lastTouch = p1; state.ball.throwInTeam = null;
                     p1.hasBall = true; state.ball.owner = p1;
-                    if(p1.role === 'GK') {
-                        state.ball.vy = 0; p1.mesh.position.y = 0; 
-                    }
-
                     if (p1.role === 'GK') {
                         setTimeout(() => {
                             if(p1.hasBall && state.ball.owner === p1) {
                                 p1.hasBall = false; state.ball.owner = null;
-                                p1.immune = Date.now() + 4000; // Prevent immediate re-pickup after kick
+                                p1.immune = Date.now() + 4000; p1.kickAnim = Date.now() + 400;
                                 const isLocal = p1.team === state.localTeam.name;
                                 const targetGoalZ = isLocal ? 5000 : -5000;
                                 const kickAngle = Math.atan2(targetGoalZ - p1.z, 0 - p1.x);
                                 state.ball.vx = Math.cos(kickAngle) * 90 + (Math.random() - 0.5) * 20;
                                 state.ball.vz = Math.sin(kickAngle) * 90;
                                 state.ball.vy = 30 + Math.random() * 20; 
-                                state.ball.curve = (Math.random() - 0.5) * 1.5;
                             }
                         }, 3000 + Math.random() * 3000);
                     } else {
-                        const retencionT = 400 + Math.random() * 800; 
                         setTimeout(() => {
                             if(p1.hasBall && state.ball.owner === p1 && !state.freeKickPending) {
+                                p1.kickAnim = Date.now() + 350;
                                 p1.hasBall = false; state.ball.owner = null;
-
                                 const isLocal = p1.team === state.localTeam.name;
                                 const tgtZ = isLocal ? 5000 : -5000;
                                 const distToGoal = Math.abs(p1.z - tgtZ);
-
                                 if (distToGoal < 3000) {
                                     const kickAngle = Math.atan2(tgtZ - p1.z, 0 - p1.x);
                                     state.ball.vx = Math.cos(kickAngle) * 65 + (Math.random() - 0.5) * 15;
                                     state.ball.vz = Math.sin(kickAngle) * 65;
                                     state.ball.vy = 10 + Math.random() * 25; 
-                                    state.ball.curve = (Math.random() - 0.5) * 2.0; 
                                 } else {
                                     const mates = state.players.filter(t => t.team === p1.team && t !== p1 && t.role !== 'GK');
                                     let bestMate = null; let bestScore = -Infinity;
@@ -1456,116 +1445,84 @@ function updateEngine() {
                                             if(score > bestScore) { bestScore = score; bestMate = t; }
                                         }
                                     });
-
                                     if (bestMate && Math.random() < 0.8) { 
                                         const pAng = Math.atan2(bestMate.z - p1.z, bestMate.x - p1.x);
                                         const dMate = Math.hypot(bestMate.x - p1.x, bestMate.z - p1.z);
                                         const f = Math.min(85, 25 + dMate * 0.018); 
-                                        state.ball.vx = Math.cos(pAng) * f;
-                                        state.ball.vz = Math.sin(pAng) * f;
+                                        state.ball.vx = Math.cos(pAng) * f; state.ball.vz = Math.sin(pAng) * f;
                                         state.ball.vy = (f > 60) ? 10 + Math.random()*15 : 0; 
-                                        state.ball.curve = (Math.random() - 0.5) * 1.0; 
                                     } else {
                                         const kAng = Math.atan2(tgtZ - p1.z, 0 - p1.x);
-                                        state.ball.vx = Math.cos(kAng) * 45;
-                                        state.ball.vz = Math.sin(kAng) * 45;
-                                        state.ball.vy = 0; 
-                                        state.ball.curve = 0;
+                                        state.ball.vx = Math.cos(kAng) * 45; state.ball.vz = Math.sin(kAng) * 45;
                                     }
                                 }
                             }
-                        }, retencionT);
+                        }, 400 + Math.random() * 800);
                     }
                 }
             }
 
-            if(p1.role !== 'GK' || (p1.hasBall || p1.fallen || p1.sliding)) {
-                // Apply inertia slide if fallen (player skids on the ground)
-                if (p1.fallen) {
-                    p1.vx *= 0.88;
-                    p1.vz *= 0.88;
-                    p1.x += p1.vx;
-                    p1.z += p1.vz;
-                }
-
-                p1.mesh.position.x = p1.x;
-                p1.mesh.position.z = p1.z;
-                
-                const distT = Math.hypot(p1.hx - p1.x, p1.hz - p1.z); 
-                
-                if (p1.fallen) {
-                    // Gradual dramatic fall rotation
-                    const targetRot = Math.PI / 2;
-                    p1.mesh.rotation.x += (targetRot - p1.mesh.rotation.x) * 0.25;
-                    p1.mesh.position.y = 15;
-                    p1.legL.rotation.x = Math.sin(now * 0.008 + i) * 0.5;
-                    p1.legR.rotation.x = Math.cos(now * 0.008 + i) * 0.5;
-                } else if (p1.sliding) {
-                    p1.mesh.rotation.x = Math.PI / 2.5;
-                    p1.mesh.position.y = 15;
-                    p1.legL.rotation.x = -Math.PI / 4; p1.legR.rotation.x = Math.PI / 4;
-                } else {
-                    // Smoothly rise back to standing
-                    p1.mesh.rotation.x += (0 - p1.mesh.rotation.x) * 0.2;
-                    p1.mesh.position.y = p1.mesh.position.y > 0 && p1.role==='GK' ? p1.mesh.position.y : 0;
-                    
-                    // Leg swing speed based on player's own velocity magnitude (not ball)
-                    const pSpeed = Math.hypot(p1.vx, p1.vz);
-                    if (pSpeed > 0.3) {
-                        const freq = 0.010 + pSpeed * 0.002;
-                        p1.legL.rotation.x = Math.sin(now * freq + i) * Math.min(0.9, pSpeed * 0.18);
-                        p1.legR.rotation.x = Math.sin(now * freq + i + Math.PI) * Math.min(0.9, pSpeed * 0.18);
-                    } else {
-                        p1.legL.rotation.x *= 0.8;
-                        p1.legR.rotation.x *= 0.8;
-                    }
-                }
+            p1.mesh.position.x = p1.x;
+            p1.mesh.position.z = p1.z;
+            
+            if (p1.fallen) {
+                p1.vx *= 0.88; p1.vz *= 0.88; p1.x += p1.vx; p1.z += p1.vz;
+                const targetRot = Math.PI / 2;
+                p1.mesh.rotation.x += (targetRot - p1.mesh.rotation.x) * 0.3;
+                p1.mesh.position.y = 15;
+                p1.legL.rotation.x = Math.sin(now * 0.008 + i) * 0.3;
+                p1.legR.rotation.x = Math.cos(now * 0.008 + i) * 0.3;
+            } else if (p1.sliding) {
+                p1.mesh.rotation.x = Math.PI / 2.2; p1.mesh.position.y = 15;
+                p1.legL.rotation.x = -Math.PI / 3.5; p1.legR.rotation.x = Math.PI / 3.5;
+            } else if (p1.kickAnim && now < p1.kickAnim) {
+                p1.legR.rotation.x = -Math.PI / 2.2; p1.legL.rotation.x *= 0.7;
             } else {
-                p1.mesh.position.x = p1.x;
-                p1.mesh.position.z = p1.z;
-                
                 const pSpeed = Math.hypot(p1.vx || 0, p1.vz || 0);
+                const targetTilt = Math.min(0.35, pSpeed * 0.04); // Inclinación al correr
+                p1.mesh.rotation.x += (targetTilt - p1.mesh.rotation.x) * 0.15;
+                p1.mesh.position.y = (p1.mesh.position.y > 0 && p1.role==='GK') ? p1.mesh.position.y : 0;
+                
                 if (pSpeed > 0.3) {
                     const freq = 0.010 + pSpeed * 0.002;
                     p1.legL.rotation.x = Math.sin(now * freq + i) * Math.min(0.9, pSpeed * 0.18);
                     p1.legR.rotation.x = Math.sin(now * freq + i + Math.PI) * Math.min(0.9, pSpeed * 0.18);
                 } else {
-                    p1.legL.rotation.x *= 0.8;
-                    p1.legR.rotation.x *= 0.8;
+                    p1.legL.rotation.x *= 0.8; p1.legR.rotation.x *= 0.8;
                 }
             }
         }
-    }
 
-    // UPDATE COACHES
-    state.coaches.forEach(c => {
-         const d = Math.hypot(c.tx - c.x, c.tz - c.z);
-         if (d < 10 || Math.random() < 0.01) {
-             c.tx = c.area.minX + Math.random() * (c.area.maxX - c.area.minX);
-             c.tz = c.area.minZ + Math.random() * (c.area.maxZ - c.area.minZ);
-         } else {
-             const ang = Math.atan2(c.tz - c.z, c.tx - c.x);
-             c.x += Math.cos(ang) * 2;
-             c.z += Math.sin(ang) * 2;
-             c.mesh.position.set(c.x, 0, c.z);
-             c.mesh.rotation.y = -ang - Math.PI/2;
-         }
-    });
+        // UPDATE COACHES
+        state.coaches.forEach(c => {
+             const d = Math.hypot(c.tx - c.x, c.tz - c.z);
+             if (d < 10 || Math.random() < 0.01) {
+                 c.tx = c.area.minX + Math.random() * (c.area.maxX - c.area.minX);
+                 c.tz = c.area.minZ + Math.random() * (c.area.maxZ - c.area.minZ);
+             } else {
+                 const ang = Math.atan2(c.tz - c.z, c.tx - c.x);
+                 c.x += Math.cos(ang) * 2;
+                 c.z += Math.sin(ang) * 2;
+                 c.mesh.position.set(c.x, 0, c.z);
+                 c.mesh.rotation.y = -ang - Math.PI/2;
+             }
+        });
 
-    camera.position.set(state.x, 200, state.z);
-    // Update Fans (Phase 36)
-    state.fans.forEach(f => {
-        if(f.celebrating) {
-            f.mesh.position.y = f.baseY + Math.abs(Math.sin(Date.now() * 0.015)) * 40;
-            if(Date.now() > f.celebrateTimer) {
-                f.celebrating = false;
-                f.mesh.position.y = f.baseY;
+        camera.position.set(state.x, 200, state.z);
+        // Update Fans (Phase 36)
+        state.fans.forEach(f => {
+            if(f.celebrating) {
+                f.mesh.position.y = f.baseY + Math.abs(Math.sin(Date.now() * 0.015)) * 40;
+                if(Date.now() > f.celebrateTimer) {
+                    f.celebrating = false;
+                    f.mesh.position.y = f.baseY;
+                }
             }
-        }
-    });
+        });
 
-    renderer.render(scene, camera);
-    requestAnimationFrame(updateEngine);
+        renderer.render(scene, camera);
+        requestAnimationFrame(updateEngine);
+    }
 }
 
 function triggerThrowIn(isEast) {
