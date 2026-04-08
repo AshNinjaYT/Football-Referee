@@ -1,146 +1,114 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Referee Simulator 3D - WebGL Version</title>
-    <link rel="stylesheet" href="style.css?v=5.0">
-    <!-- THREE.JS CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="database.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Football Referee Pro v2</title>
+  <link rel="stylesheet" href="./src/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
-
 <body>
-    <div id="start-overlay">
-        <div class="menu-container">
-            <div class="referee-model-menu">
-                <div class="c-head"></div>
-                <div class="c-torso referee-stripes"></div>
-                <div class="c-leg left"></div>
-                <div class="c-leg right"></div>
-            </div>
-            <div class="menu-options">
-                <div class="logo-3d">🏆</div>
-                <h1>Referee Simulator 3D</h1>
-                <p><b>Edición WebGL Definitiva</b>. Regula las faltas de un ecosistema de inteligencia artificial en un
-                    Engine Rendering totalmente Volumétrico y acelerado. Disfruta los modelos HD hiper-realistas.</p>
-                <div class="buttons-layout">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom: 5px; margin-top: 10px;">
-                        <labelº for="time-select" style="font-size:1.1rem; color: #cbd5e1;">⏱️ Escala de Tiempo:</label>
-                        <select id="time-select" style="padding: 10px; border-radius: 5px; font-size: 1rem; flex:1; background: #334155; color: white; border: 1px solid #475569;">
-                            <option value="1">1 Minuto Real</option>
-                            <option value="2" selected>2 Minutos Reales</option>
-                            <option value="3">3 Minutos Reales</option>
-                            <option value="5">5 Minutos Reales</option>
-                        </select>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom: 10px; margin-top: 5px;">
-                        <label for="stadium-select" style="font-size:1.1rem; color: #cbd5e1;">🏟️ Seleccionar Estadio:</label>
-                        <select id="stadium-select" style="padding: 10px; border-radius: 5px; font-size: 1rem; flex:1; background: #334155; color: white; border: 1px solid #475569;">
-                            <option value="azul">Estadio Azul (Clásico)</option>
-                            <option value="industrial">Estadio Industrial (Neon)</option>
-                            <option value="monumental" selected>Estadio Monumental (Gradas)</option>
-                        </select>
-                    </div>
-
-                    <div style="display:flex; gap: 10px; margin-bottom: 20px;">
-                        <div style="flex:1;">
-                            <label style="display:block; font-size:0.8rem; color:#94a3b8; margin-bottom:5px;">EQUIPO LOCAL</label>
-                            <select id="local-team-select" style="width:100%; padding: 10px; border-radius: 5px; background: #1e293b; color: white; border: 1px solid #475569;">
-                                <!-- Teams will be loaded here -->
-                            </select>
-                        </div>
-                        <div style="flex:1;">
-                            <label style="display:block; font-size:0.8rem; color:#94a3b8; margin-bottom:5px;">EQUIPO VISITANTE</label>
-                            <select id="away-team-select" style="width:100%; padding: 10px; border-radius: 5px; background: #1e293b; color: white; border: 1px solid #475569;">
-                                <!-- Teams will be loaded here -->
-                            </select>
-                        </div>
-                    </div>
-                    <button id="btn-enter-8" class="btn" style="background:#facc15; color:black;">▶ JUGAR 8 VS 8 (REDUCIDO)</button>
-                    <button id="btn-enter-11" class="btn" style="background:#10b981; color:white;">▶ JUGAR 11 VS 11 (OFICIAL)</button>
-                </div>
-            </div>
+  <div id="app">
+    <!-- UI Overlay Section -->
+    <div id="ui-container">
+      <!-- Loading Screen -->
+      <div id="loading-screen" class="glass-overlay">
+        <div class="loader-content">
+          <div class="soccer-ball-spinner">⚽</div>
+          <h2>INICIALIZANDO MOTOR PRO</h2>
+          <p>Cargando físicas de Rapier y Renderizado Volumétrico...</p>
+          <div class="progress-bar-container">
+            <div id="load-progress" class="progress-bar"></div>
+          </div>
         </div>
-    </div>
+      </div>
 
-    <div id="hud">
+      <!-- Main Menu -->
+      <div id="main-menu" class="glass-module hidden">
+        <div class="menu-header">
+            <span class="logo">🏆</span>
+            <h1>Football Referee <span class="accent">PRO</span></h1>
+            <p class="tagline">v2.0 Next-Gen Simulation</p>
+        </div>
+        
+        <div class="menu-body">
+          <div class="setup-group">
+            <label>⏱️ DURACIÓN</label>
+            <select id="match-duration">
+              <option value="1">1 Minuto</option>
+              <option value="2" selected>2 Minutos</option>
+              <option value="5">5 Minutos</option>
+            </select>
+          </div>
+
+          <div class="setup-group">
+            <label>🏟️ ESTADIO</label>
+            <select id="stadium-type">
+              <option value="monumental" selected>Estadio Monumental</option>
+              <option value="neon">Arena Industrial (Neon)</option>
+            </select>
+          </div>
+
+          <div class="team-selection">
+            <div class="team-card local">
+              <p>LOCAL</p>
+              <select id="local-team"></select>
+            </div>
+            <div class="vs">VS</div>
+            <div class="team-card away">
+              <p>VISITANTE</p>
+              <select id="away-team"></select>
+            </div>
+          </div>
+
+          <button id="btn-start" class="btn-primary">▶ COMENZAR PARTIDO</button>
+        </div>
+      </div>
+
+      <!-- HUD -->
+      <div id="hud" class="hidden">
+        <div class="top-hud">
+          <div class="authority-bar glass-inner">
+            <span class="label">AUTORIDAD</span>
+            <div class="bar"><div id="authority-bar" style="width:70%"></div></div>
+          </div>
+          <div class="scoreboard glass-inner">
+              <div class="team-name" id="local-name">LOC</div>
+              <div class="score-display" id="hud-score">0 - 0</div>
+              <div class="team-name" id="away-name">VIS</div>
+              <div class="match-time" id="hud-time">00:00</div>
+          </div>
+        </div>
+
         <div id="crosshair"></div>
-        <div id="top-bar">
-            <div id="respect-panel">
-                <span>Autoridad: </span>
-                <div class="progress-bar">
-                    <div id="respect-fill"></div>
-                </div>
-                <span id="respect-value">100%</span>
-            </div>
-            <div id="match-timer">00:00</div>
-            <div id="scoreboard">
-                <span class="team local">AZUL</span>
-                <span class="score" id="score-val">0 - 0</span>
-                <span class="team visitante">ROJO</span>
+
+        <!-- Decision Modal -->
+        <div id="decision-panel" class="glass-module mini hidden">
+            <h3>⚖️ DECISIÓN DEL ÁRBITRO</h3>
+            <div class="decision-grid">
+              <button data-action="play-on" class="btn-action">SIGA</button>
+              <button data-action="foul" class="btn-action warning">FALTA</button>
+              <button data-action="yellow" class="btn-action yellow">AMARILLA</button>
+              <button data-action="red" class="btn-action red">ROJA</button>
             </div>
         </div>
 
-        <div id="foul-modal" style="display: none;">
-            <h2>🚨 INFRACCIÓN TRAS CHOQUE 🚨</h2>
-            <p id="foul-player-info">Jugador Seleccionado</p>
-            <div class="controls">
-                <button class="action-btn none" onclick="handleDecision('none')">Dejar Seguir (Advertir)</button>
-                <button class="action-btn foul" onclick="handleDecision('foul')">Pitar Falta Directa</button>
-                <button class="action-btn yellow" onclick="handleDecision('yellow')">Tarjeta Amarilla</button>
-                <button class="action-btn red" onclick="handleDecision('red')">Tarjeta Roja (Expulsión)</button>
-            </div>
+        <!-- Alerts -->
+        <div id="goal-alert" class="hidden">
+            <h1 class="glow-text">⚽ GOLAZO!</h1>
         </div>
 
-        <div id="game-over" style="display: none; background: rgba(15, 23, 42, 0.98); position: absolute; inset: 0; z-index: 10000; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; font-family: 'Inter', sans-serif;">
-            <div style="background: #1e2c93b; padding: 3rem; border-radius: 20px; border: 2px solid #334155; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); max-width: 500px; width: 90%;">
-                <h1 id="go-title" style="font-size: 3rem; margin-bottom: 0.5rem; color: #facc15;">¡FIN DEL PARTIDO!</h1>
-                <h2 id="go-desc" style="font-size: 2rem; margin-bottom: 2rem; border-bottom: 1px solid #475569; padding-bottom: 1rem;">Azul 0 - 0 Rojo</h2>
-                
-                <div id="post-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; font-size: 1.2rem; text-align: left;">
-                    <div>⚠️ Faltas: <span id="stat-fouls" style="color:#facc15; font-weight:bold;">0</span></div>
-                    <div>🟨 Amarillas: <span id="stat-yellow" style="color:#fde047; font-weight:bold;">0</span></div>
-                    <div>🟥 Rojas: <span id="stat-red" style="color:#ef4444; font-weight:bold;">0</span></div>
-                    <div>⚽ Goles: <span id="stat-goals" style="color:#10b981; font-weight:bold;">0</span></div>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button onclick="location.reload()" class="btn" style="background: #10b981; width: 100%; padding: 15px; font-size: 1.2rem;">REINICIAR PARTIDO</button>
-                    <button onclick="location.reload()" class="btn" style="background: #475569; width: 100%; padding: 15px; font-size: 1.2rem;">VOLVER AL MENÚ PRINCIPAL</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="goal-alert" style="display: none; position: absolute; inset:0; z-index:500; display:none; align-items:center; justify-content:center;">
-            <div id="goal-alert-box" style="background: rgba(16, 185, 129, 0.9); padding: 2rem 4rem; border-radius: 15px; border: 4px solid white;">
-                <h1 class="flash-text" id="goal-alert-text">¡GOLAZO!</h1>
-            </div>
-        </div>
-
-        <button id="btn-whistle" class="btn" style="display:none; position:absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: #facc15; color: black; z-index:9999; font-size: 1.5rem; border: 3px solid white; font-weight: bold; pointer-events: auto;">📣 PITAR REANUDACIÓN</button>
-
-        <!-- FOUL FLASH OVERLAY -->
-        <div id="foul-flash" style="display:none; position:absolute; inset:0; z-index:800; pointer-events:none; align-items:center; justify-content:center; flex-direction:column;">
-            <div id="foul-flash-box">
-                <div id="foul-flash-icon">⚠️</div>
-                <div id="foul-flash-title">¡FALTA!</div>
-                <div id="foul-flash-desc"></div>
-            </div>
-        </div>
-
-        <!-- TACKLE INDICATOR (visible text near center while tackle happens) -->
-        <div id="tackle-indicator" style="display:none; position:absolute; bottom:140px; left:50%; transform:translateX(-50%); pointer-events:none; z-index:700;">
-            <div id="tackle-indicator-text"></div>
-        </div>
-
-        <!-- CAMERA SHAKE overlay (red vignette flash) -->
-        <div id="cam-shake-overlay" style="display:none; position:absolute; inset:0; pointer-events:none; z-index:600; border: 12px solid rgba(239,68,68,0.0); border-radius:0;"></div>
+        <!-- Pantalla de Resultado Final -->
+        <div id="match-result" class="hidden"></div>
+      </div>
     </div>
 
-    <script src="main.js?v=6.0"></script>
-</body>
+    <!-- Three.js Canvas -->
+    <canvas id="game-canvas"></canvas>
+  </div>
 
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>
