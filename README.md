@@ -1,24 +1,37 @@
-# 🏛️ Football Referee (Legacy Edition)
+# 🏛️ Football Referee Classic - Vanilla Web Engine
 
-[![Legacy Version](https://img.shields.io/badge/Status-Historical-blue?style=for-the-badge)](https://github.com/AshNinjaYT/Football-Referee/tree/legacy-vanilla)
-[![Vanilla JS](https://img.shields.io/badge/Tech-Vanilla_JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+Este es el simulador original de **Football Referee**, construido enteramente sobre estándares web vainilla. Esta versión se centra en la ligereza y el uso directo de las APIs del navegador para crear una experiencia de gestión deportiva táctica en 2D.
 
-Este es el origen del proyecto **Football Referee**. Representa la primera versión funcional del simulador, desarrollada enteramente con tecnologías web vainilla (HTML, CSS y JavaScript puro) sin el uso de motores gráficos en 3D ni motores de física externos.
+## 🛠️ Stack Tecnológico (Core)
 
----
+- **Lenguaje**: [JavaScript (ES6+)](https://developer.mozilla.org/en-US/docs/Web/JavaScript) - Lógica procedural y funcional para gestionar el motor de juego.
+- **Estructura**: [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML) - Uso de contenedores semánticos para la UI y el campo de juego.
+- **Estilo**: [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) - Diseño responsivo y estilización de menús dinámicos.
+- **Persistencia**: [JSON](https://www.json.org/) - Almacenamiento de datos de equipos y configuraciones de clubes.
 
-## 💾 Estado del Proyecto
-Esta rama se mantiene exclusivamente por su **valor histórico** y como recurso educativo. Es ideal para aquellos desarrolladores que deseen aprender cómo gestionar la lógica de un motor deportivo desde cero, manejando la manipulación directa del DOM y renderizado Canvas 2D básico.
+## 🧠 Lógica de Juego y Desarrollo
 
-## 🛠️ Tecnologías Originales
-- **HTML5**: Estructura general y contenedores de UI de primer nivel.
-- **CSS3**: Estilización de menús dinámicos y diseño responsivo original.
-- **JavaScript (Vanilla)**: Motor lógico, gestión de estados de equipo y movimientos de jugadores por coordenadas directas.
+### Motor Prototípico
+A diferencia de versiones posteriores, esta edición utiliza **JavaScript puro** para manejar el bucle de juego:
+- **Movimiento por Coordenadas**: Gestión directa de posiciones X e Z en un plano 2D.
+- **Lógica de Colisión Manual**: Algoritmos de proximidad basados en el teorema de Pitágoras para detectar contactos con el balón.
+- **Gestión de DOM**: Actualización en tiempo real de los marcadores y estados mediante manipulación directa de elementos HTML.
 
 ## ⚽ Características de la Versión
-- Simulación 2D optimizada para navegadores ligeros.
-- Sistema de equipos flexible basado en estructuras JSON planas.
-- Base de datos local simplificada para persistencia de datos del club.
+- **Compatible con Todos los Navegadores**: Sin necesidad de WebGL o soporte para motores 3D complejos.
+- **Fácil de Aprender**: Código ideal para desarrolladores que quieran entender las bases de un juego web sin frameworks.
+- **Estructura Plana**: Todo el código se encuentra organizado de forma sencilla en archivos `.js` y `.css` globales.
+
+## 🏃‍♂️ Cómo Empezar
+No requiere instalación de dependencias ni compilación.
+
+1. **Clonar la rama**:
+   ```bash
+   git checkout legacy-vanilla
+   ```
+
+2. **Ejecutar**:
+   Simplemente abre el archivo `index.html` en cualquier navegador moderno.
 
 ---
-*Nota: Esta versión ha sido superada en tecnología por la simulación 3D avanzada. Para ver el motor moderno con IA Táctica y físicas RAPIER, por favor dirígete a la rama **`pro-v2-ts`**.*
+*Football Referee Classic - El origen del simulador en código web puro.*
