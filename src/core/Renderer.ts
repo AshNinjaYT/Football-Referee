@@ -191,31 +191,49 @@ export class Renderer {
         const standMat  = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
         const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
         const bulbMat   = new THREE.MeshBasicMaterial({ color: 0xfefce8 });
+        const adMat     = new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x1d4ed8, emissiveIntensity: 0.2 });
 
         // Gradas (4 lados)
         const stands = [
-            { w: fw + 2000, h: 900, d: 1600, x: 0,       z: HH + 900  },
-            { w: fw + 2000, h: 900, d: 1600, x: 0,       z: -(HH + 900) },
-            { w: 1600,      h: 900, d: fh,   x: HW + 900, z: 0         },
-            { w: 1600,      h: 900, d: fh,   x: -(HW + 900), z: 0      },
+            { w: fw + 3000, h: 1200, d: 2000, x: 0,       z: HH + 1200  },
+            { w: fw + 3000, h: 1200, d: 2000, x: 0,       z: -(HH + 1200) },
+            { w: 2000,      h: 1200, d: fh,   x: HW + 1200, z: 0         },
+            { w: 2000,      h: 1200, d: fh,   x: -(HW + 1200), z: 0      },
         ];
-        stands.forEach(s => {
+        stands.forEach((s, idx) => {
+            // Estructura principal de la grada
             const m = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h, s.d), standMat);
             m.position.set(s.x, s.h / 2, s.z);
             m.castShadow = true;
             m.receiveShadow = true;
             this.scene.add(m);
+
+            // Vallas publicitarias (Billboards) en el borde frontal
+            const isHorizontal = idx < 2;
+            const adW = isHorizontal ? s.w - 400 : 10;
+            const adD = isHorizontal ? 10 : s.d - 400;
+            const adH = 180;
+            const adMesh = new THREE.Mesh(new THREE.BoxGeometry(adW, adH, adD), adMat);
+            
+            const offset = 1010;
+            if (isHorizontal) {
+                adMesh.position.set(s.x, adH / 2 + 5, s.z + (s.z > 0 ? -offset : offset));
+            } else {
+                adMesh.position.set(s.x + (s.x > 0 ? -offset : offset), adH / 2 + 5, s.z);
+            }
+            this.scene.add(adMesh);
         });
 
         // Torres de iluminación + focos
         const corners = [[-1,-1],[1,-1],[-1,1],[1,1]] as const;
         corners.forEach(([sx, sz]) => {
-            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(35, 35, 2200), pillarMat);
-            pillar.position.set(sx * (HW + 650), 1100, sz * (HH + 500));
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(35, 35, 2500), pillarMat);
+            pillar.position.set(sx * (HW + 800), 1250, sz * (HH + 800));
             this.scene.add(pillar);
 
-            const bulb = new THREE.Mesh(new THREE.BoxGeometry(350, 150, 150), bulbMat);
-            bulb.position.set(sx * (HW + 650), 2200, sz * (HH + 500));
+            const bulb = new THREE.Mesh(new THREE.BoxGeometry(450, 250, 200), bulbMat);
+            bulb.position.set(sx * (HW + 800), 2500, sz * (HH + 800));
+            bulb.lookAt(0, 0, 0); // Orientar focos al centro
             this.scene.add(bulb);
         });
     }

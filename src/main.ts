@@ -23,13 +23,21 @@ async function bootstrap() {
         const localSelect = document.getElementById('local-team') as HTMLSelectElement;
         const awaySelect = document.getElementById('away-team') as HTMLSelectElement;
         
-        teams.forEach((team: any) => {
+        teams.forEach((team: any, index: number) => {
             console.log(`Cargando equipo: ${team.name}`);
             const opt = document.createElement('option');
             opt.value = team.id;
             opt.textContent = team.name;
-            localSelect.appendChild(opt.cloneNode(true));
-            awaySelect.appendChild(opt);
+            
+            const localOpt = opt.cloneNode(true) as HTMLOptionElement;
+            const awayOpt = opt.cloneNode(true) as HTMLOptionElement;
+            
+            // Pre-seleccionar distintos
+            if (index === 0) localOpt.selected = true;
+            if (index === 1) awayOpt.selected = true;
+            
+            localSelect.appendChild(localOpt);
+            awaySelect.appendChild(awayOpt);
         });
 
         console.log("Habilitando menú principal...");

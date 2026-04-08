@@ -5,56 +5,68 @@ import { Player, PlayerRole, PlayerState } from '../entities/Player';
 import { Referee } from '../entities/Referee';
 import { InputManager } from './InputManager';
 
-// =============================================
-// FORMACIONES — coordenadas relativas al centro
-// de su mitad de campo. Z negativo = hacia su portería.
-// =============================================
+export enum MatchPhase {
+    KICKOFF,
+    PLAYING,
+    GOAL_KICK,
+    THROW_IN,
+    FOUL_FREE
+}
+
+// =====================================================================
+// FORMACIONES — Coordenadas desde el centro del campo.
+// Z negativo = zona propia. Unidades en mm (1u = 1cm → campo 105m)
+// =====================================================================
 type FormationPos = { x: number; z: number; role: PlayerRole };
 
-const FORMATIONS: FormationPos[][] = [
-    // 4-3-3 (FIFA Standard 105m)
-    [
-        { x: 0,     z: -4800, role: PlayerRole.GOALKEEPER  },
-        { x: -1800, z: -3800, role: PlayerRole.DEFENDER    },
-        { x: -600,  z: -4200, role: PlayerRole.DEFENDER    },
-        { x:  600,  z: -4200, role: PlayerRole.DEFENDER    },
-        { x:  1800, z: -3800, role: PlayerRole.DEFENDER    },
-        { x: -1200, z: -2000, role: PlayerRole.MIDFIELDER  },
-        { x:  0,    z: -2500, role: PlayerRole.MIDFIELDER  },
-        { x:  1200, z: -2000, role: PlayerRole.MIDFIELDER  },
-        { x: -1500, z: -800,  role: PlayerRole.FORWARD     },
-        { x:  0,    z: -1200, role: PlayerRole.FORWARD     },
-        { x:  1500, z: -800,  role: PlayerRole.FORWARD     },
-    ],
-    // 4-4-2
-    [
-        { x: 0,     z: -4800, role: PlayerRole.GOALKEEPER  },
-        { x: -1800, z: -3800, role: PlayerRole.DEFENDER    },
-        { x: -600,  z: -4200, role: PlayerRole.DEFENDER    },
-        { x:  600,  z: -4200, role: PlayerRole.DEFENDER    },
-        { x:  1800, z: -3800, role: PlayerRole.DEFENDER    },
-        { x: -2000, z: -2200, role: PlayerRole.MIDFIELDER  },
-        { x: -700,  z: -2600, role: PlayerRole.MIDFIELDER  },
-        { x:  700,  z: -2600, role: PlayerRole.MIDFIELDER  },
-        { x:  2000, z: -2200, role: PlayerRole.MIDFIELDER  },
-        { x: -800,  z: -1000, role: PlayerRole.FORWARD     },
-        { x:  800,  z: -1000, role: PlayerRole.FORWARD     },
-    ],
-    // 5-3-2 (Defensivo)
-    [
-        { x: 0,     z: -4800, role: PlayerRole.GOALKEEPER  },
-        { x: -2200, z: -3200, role: PlayerRole.DEFENDER    },
-        { x: -1000, z: -3800, role: PlayerRole.DEFENDER    },
-        { x:  0,    z: -4300, role: PlayerRole.DEFENDER    },
-        { x:  1000, z: -3800, role: PlayerRole.DEFENDER    },
-        { x:  2200, z: -3200, role: PlayerRole.DEFENDER    },
-        { x: -1200, z: -2000, role: PlayerRole.MIDFIELDER  },
-        { x:  0,    z: -2400, role: PlayerRole.MIDFIELDER  },
-        { x:  1200, z: -2000, role: PlayerRole.MIDFIELDER  },
-        { x: -800,  z: -1000, role: PlayerRole.FORWARD     },
-        { x:  800,  z: -1000, role: PlayerRole.FORWARD     },
-    ],
+// 4‑3‑3 ofensiva
+const F433: FormationPos[] = [
+    { x:    0, z: -4800, role: PlayerRole.GOALKEEPER },
+    { x: -2000, z: -3800, role: PlayerRole.DEFENDER  },
+    { x:  -650, z: -4100, role: PlayerRole.DEFENDER  },
+    { x:   650, z: -4100, role: PlayerRole.DEFENDER  },
+    { x:  2000, z: -3800, role: PlayerRole.DEFENDER  },
+    { x: -1200, z: -2400, role: PlayerRole.MIDFIELDER },
+    { x:     0, z: -2900, role: PlayerRole.MIDFIELDER },
+    { x:  1200, z: -2400, role: PlayerRole.MIDFIELDER },
+    { x: -2000, z:  -900, role: PlayerRole.FORWARD   },
+    { x:     0, z: -1300, role: PlayerRole.FORWARD   },
+    { x:  2000, z:  -900, role: PlayerRole.FORWARD   },
 ];
+
+// 4‑4‑2 equilibrada
+const F442: FormationPos[] = [
+    { x:    0, z: -4800, role: PlayerRole.GOALKEEPER },
+    { x: -2000, z: -3900, role: PlayerRole.DEFENDER  },
+    { x:  -650, z: -4200, role: PlayerRole.DEFENDER  },
+    { x:   650, z: -4200, role: PlayerRole.DEFENDER  },
+    { x:  2000, z: -3900, role: PlayerRole.DEFENDER  },
+    { x: -2200, z: -2500, role: PlayerRole.MIDFIELDER },
+    { x:  -700, z: -2800, role: PlayerRole.MIDFIELDER },
+    { x:   700, z: -2800, role: PlayerRole.MIDFIELDER },
+    { x:  2200, z: -2500, role: PlayerRole.MIDFIELDER },
+    { x:  -800, z: -1100, role: PlayerRole.FORWARD   },
+    { x:   800, z: -1100, role: PlayerRole.FORWARD   },
+];
+
+// 5‑3‑2 defensivo
+const F532: FormationPos[] = [
+    { x:    0, z: -4800, role: PlayerRole.GOALKEEPER },
+    { x: -2400, z: -3400, role: PlayerRole.DEFENDER  },
+    { x: -1000, z: -4000, role: PlayerRole.DEFENDER  },
+    { x:     0, z: -4300, role: PlayerRole.DEFENDER  },
+    { x:  1000, z: -4000, role: PlayerRole.DEFENDER  },
+    { x:  2400, z: -3400, role: PlayerRole.DEFENDER  },
+    { x: -1300, z: -2300, role: PlayerRole.MIDFIELDER },
+    { x:     0, z: -2600, role: PlayerRole.MIDFIELDER },
+    { x:  1300, z: -2300, role: PlayerRole.MIDFIELDER },
+    { x:  -850, z: -1100, role: PlayerRole.FORWARD   },
+    { x:   850, z: -1100, role: PlayerRole.FORWARD   },
+];
+
+const FORMATIONS = [F433, F442, F532];
+
+// =====================================================================
 
 export class Engine {
     public renderer: Renderer;
@@ -65,171 +77,190 @@ export class Engine {
     private players: Player[] = [];
 
     private isRunning = false;
-    private isPaused = false;
+    private isPaused  = false;
+    private matchPhase: MatchPhase = MatchPhase.KICKOFF;
+
     private score = { local: 0, away: 0 };
-    private matchTime = 0;          // Segundos reales
-    private readonly MATCH_DURATION = 180; // 3 minutos reales ≈ 90 min de juego
+    private matchTime = 0;
+    private readonly MATCH_DURATION = 180; // 3 min reales = 90 min simulados
     private lastFrameTime = 0;
 
-    // Control de posesión
+    // Posesión
     private ballOwner: Player | null = null;
-    private kickCooldown = 0;       // frames de enfriamiento tras un kick
+    private kickCooldown = 0;
+    private ballFreeTimer = 0; // cuántos segundos lleva el balón libre
+    private kickoffTimer = 0;  // temporizador para saque inicial
 
-    // Foul throttle
+    // Cooldowns
     private foulCooldown = 0;
+    private phaseBlocked  = false; // evita detectar out mientras se resetea
 
-    // El portero de cada equipo (índice 0 de la lista de cada equipo)
     private localTeamData: any = null;
-    private awayTeamData: any = null;
+    private awayTeamData:  any = null;
 
     constructor(canvas: HTMLCanvasElement) {
         this.renderer = new Renderer(canvas);
-        this.physics = Physics.getInstance();
-        this.input = new InputManager(canvas);
+        this.physics  = Physics.getInstance();
+        this.input    = new InputManager(canvas);
     }
 
     public async setupMatch(localTeam: any, awayTeam: any) {
         this.localTeamData = localTeam;
         this.awayTeamData  = awayTeam;
 
-        // Campo + límites físicos (alineados con las líneas visuales)
         this.renderer.createGrassField(FIELD_W, FIELD_H);
         this.physics.createFieldBoundaries();
-
-        // Árbitro FPS
         this.referee = new Referee(this.renderer.scene, this.renderer.camera);
+        this.ball    = new Ball(this.renderer.scene, 0, 80, 0);
 
-        // Balón en el centro
-        this.ball = new Ball(this.renderer.scene, 0, 80, 0);
-
-        // Spawnear jugadores en formación
         this.spawnTeam(localTeam.color || '#3b82f6', 0);
-        this.spawnTeam(awayTeam.color || '#ef4444',  1);
+        this.spawnTeam(awayTeam.color  || '#ef4444', 1);
 
-        this.isRunning = true;
+        this.matchPhase = MatchPhase.KICKOFF;
+        this.kickoffTimer = 3; // 3 segundos de espera
+        this.triggerMatchPhase('PREPARADOS...', 2000);
+        this.isRunning  = true;
         this.lastFrameTime = performance.now();
         this.loop();
     }
 
     private spawnTeam(color: string, team: number) {
         const formation = FORMATIONS[Math.floor(Math.random() * FORMATIONS.length)];
-        const sign = team === 0 ? 1 : -1; // equipo 0 ataca +Z, equipo 1 ataca -Z
-
-        formation.forEach(pos => {
-            const px = pos.x;
-            const pz = pos.z * sign; // espejo por equipos
-            const player = new Player(
-                this.renderer.scene,
-                team,
-                pos.role,
-                color,
-                px,
-                pz
-            );
-            this.players.push(player);
+        const sign = team === 0 ? 1 : -1;
+        formation.forEach(p => {
+            const jitter = (Math.random() - 0.5) * 60; // Desplazamiento sutil (60cm)
+            this.players.push(new Player(
+                this.renderer.scene, team, p.role, color,
+                p.x + jitter, p.z * sign + jitter
+            ));
         });
     }
 
-    // ─────────────────────────  LOOP  ──────────────────────────
+    // ─────────────────────────────  LOOP  ────────────────────────────────
     private loop() {
         if (!this.isRunning) return;
 
-        const now = performance.now();
-        const delta = now - this.lastFrameTime;
+        const now   = performance.now();
+        const delta = Math.min(now - this.lastFrameTime, 50); // max 50ms
         this.lastFrameTime = now;
 
-        // Física con fixed timestep
         this.physics.step(delta);
 
         if (!this.isPaused) {
             this.updateMatchLogic(delta);
         }
 
-        // Actualizar entidades
-        // Actualizar entidades
-        const bpos = this.ball!.body.translation();
-        const bvel = this.ball!.body.linvel();
-        
-        // Determinar persequidores (el más cercano de cada equipo)
-        const chaser0 = this.getClosestPlayer(bpos, 0);
-        const chaser1 = this.getClosestPlayer(bpos, 1);
-
-        // Mapas de equipo para calcular el índice relativo (slot)
-        const localTeam  = this.players.filter(p => p.team === 0);
-        const awayTeam   = this.players.filter(p => p.team === 1);
-
-        const attackingTeam = this.ballOwner?.team ?? -1;
-
-        this.players.forEach(p => {
-            const teamList = p.team === 0 ? localTeam : awayTeam;
-            const oppList  = p.team === 0 ? awayTeam : localTeam;
-            const slotIndex = teamList.indexOf(p);
-            const isChaser = (p === chaser0 || p === chaser1);
-            const isAttacking = p.team === attackingTeam;
-            
-            // Repulsión solo con compañeros
-            const teammates = teamList.filter(other => other !== p);
-            
-            // Llamada v6.0: Incluyendo isAttacking
-            p.update(delta, bpos, bvel, this.ballOwner, isChaser, teammates, oppList, slotIndex, isAttacking);
-        });
-        if (this.referee) this.referee.update(this.input);
-        this.ball!.update();
+        this.updateEntities(delta);
 
         this.input.update();
         this.renderer.render();
         requestAnimationFrame(() => this.loop());
     }
 
-    // ───────────────────────  LÓGICA  ──────────────────────────
+    // ──────────────────────  LÓGICA DE PARTIDO  ───────────────────────────
     private updateMatchLogic(delta: number) {
-        // 1. Cronómetro
+        if (this.matchPhase === MatchPhase.KICKOFF) {
+            this.kickoffTimer -= delta / 1000;
+            if (this.kickoffTimer <= 0) {
+                this.matchPhase = MatchPhase.PLAYING;
+            }
+            return; // Bloquear lógica de juego durante kickoff
+        }
+
         this.matchTime += delta / 1000;
         this.updateHUD();
 
-        if (this.matchTime >= this.MATCH_DURATION) {
-            this.endMatch();
-            return;
+        if (this.matchTime >= this.MATCH_DURATION) { this.endMatch(); return; }
+
+        const bpos = this.ball!.body.translation();
+
+        // Posesión
+        this.updatePossession(bpos);
+
+        // Temporizador de balón libre
+        if (!this.ballOwner) {
+            this.ballFreeTimer += delta / 1000;
+        } else {
+            this.ballFreeTimer = 0;
         }
 
-        const ballPos = this.ball!.body.translation();
-
-        // 2. Posesión
-        this.updatePossession(ballPos);
-
-        // 3. Kicks de IA
+        // IA: kicks
         this.kickCooldown = Math.max(0, this.kickCooldown - 1);
         if (this.kickCooldown === 0) {
-            this.handleAIKicks(ballPos);
+            this.handleAIAction(bpos);
         }
 
-        // 4. Límite del balón (rebote en paredes sin físicas extra)
-        this.clampBallToField(ballPos);
+        // Saques (solo si no estamos en una transición)
+        if (!this.phaseBlocked && this.matchPhase === MatchPhase.PLAYING) {
+            this.checkBallOut(bpos);
+        }
 
-        // 5. Goles
-        this.checkGoals(ballPos);
+        // Goles
+        this.checkGoals(bpos);
 
-        // 6. Faltas
+        // Faltas
         this.foulCooldown = Math.max(0, this.foulCooldown - 1);
-        if (this.foulCooldown === 0) {
-            this.checkFouls();
-        }
+        if (this.foulCooldown === 0) { this.checkFouls(); }
     }
 
-    /** Determinar qué jugador controla el balón */
-    private updatePossession(ballPos: any) {
-        let closest: Player | null = null;
-        let minDist = 120; // sólo captura si está muy cerca
+    // ─────────────────────  ACTUALIZAR ENTIDADES  ─────────────────────────
+    private updateEntities(delta: number) {
+        const bpos = this.ball!.body.translation();
+        const bvel = this.ball!.body.linvel();
 
+        const localTeam = this.players.filter(p => p.team === 0);
+        const awayTeam  = this.players.filter(p => p.team === 1);
+        const attackTeam = this.ballOwner?.team ?? -1;
+
+        // Preparar mapas de "oponente más cercano" para cada jugador
+        const nearestOpp = new Map<Player, Player | null>();
         this.players.forEach(p => {
-            const d = Math.hypot(p.body.translation().x - ballPos.x, p.body.translation().z - ballPos.z);
-            if (d < minDist) {
-                minDist = d;
-                closest = p;
-            }
+            const opps = p.team === 0 ? awayTeam : localTeam;
+            let bestD = Infinity, bestP: Player | null = null;
+            opps.forEach(o => {
+                const pp = p.body.translation();
+                const op = o.body.translation();
+                const d  = Math.hypot(pp.x - op.x, pp.z - op.z);
+                if (d < bestD) { bestD = d; bestP = o; }
+            });
+            nearestOpp.set(p, bestP);
         });
 
-        // Actualizar hasBall flags
+        // Obtener los 2 perseguidores (uno por equipo, más cercanos al balón)
+        const chaser0 = this.getClosestToball(bpos, 0);
+        const chaser1 = this.getClosestToball(bpos, 1);
+
+        this.players.forEach(p => {
+            const teamList   = p.team === 0 ? localTeam : awayTeam;
+            const oppList    = p.team === 0 ? awayTeam  : localTeam;
+            const slotIndex  = teamList.indexOf(p);
+            const isChaser   = (p === chaser0 || p === chaser1);
+            const isAttacking = p.team === attackTeam;
+            const teammates  = teamList.filter(t => t !== p);
+
+            p.update(
+                delta, bpos, bvel, this.ballOwner,
+                isChaser, teammates, oppList, slotIndex, isAttacking,
+                nearestOpp.get(p) ?? null,
+                this.ballFreeTimer
+            );
+        });
+
+        if (this.referee) this.referee.update(this.input);
+        this.ball!.update();
+    }
+
+    // ─────────────────────────  POSESIÓN  ────────────────────────────────
+    private updatePossession(ballPos: any) {
+        let closest: Player | null = null;
+        let minDist = 150; // radio de captura
+
+        this.players.forEach(p => {
+            const pp = p.body.translation();
+            const d  = Math.hypot(pp.x - ballPos.x, pp.z - ballPos.z);
+            if (d < minDist) { minDist = d; closest = p; }
+        });
+
         this.players.forEach(p => { p.hasBall = false; });
         if (closest) {
             (closest as Player).hasBall = true;
@@ -239,268 +270,394 @@ export class Engine {
         }
     }
 
-    /** IA aplica fuerzas al balón según rol/posición o busca pase */
-    private handleAIKicks(ballPos: any) {
+    // ─────────────────────────  IA DE ACCIÓN  ────────────────────────────
+    /**
+     * Motor de toma de decisión del equipo con balón:
+     * 1. PORTERO con balón → saque largo o corto
+     * 2. Defensa con balón → pase seguro o despeje
+     * 3. Cualquier jugador en posición de tiro → DISPARO
+     * 4. En banda con compañero en área → CENTRO
+     * 5. Si hay pase libre mejor → PASE
+     * 6. Conducción hacia adelante
+     */
+    private handleAIAction(ballPos: any) {
         if (!this.ballOwner) return;
 
-        const owner = this.ballOwner;
-        const atkGoalZ  = owner.team === 0 ? FIELD_H / 2 : -FIELD_H / 2;
-        const dirZ = atkGoalZ > 0 ? 1 : -1;
+        const owner    = this.ballOwner;
+        const ownerPos = owner.body.translation();
+        const atkGoalZ = owner.team === 0 ?  FIELD_H / 2 : -FIELD_H / 2;
+        const atkDir   = atkGoalZ > 0 ? 1 : -1;
+        const distToGoal = Math.abs(ownerPos.z - atkGoalZ);
 
-        // 1. ¿Hay algún compañero para pasar?
-        const receiver = this.findPassReceiver(owner, ballPos, dirZ);
-        
-        let impulseX = 0, impulseZ = 0, impulseY = 30;
-        const distToGoal = Math.abs(ballPos.z - atkGoalZ);
+        let impulse = { x: 0, y: 40, z: 0 };
 
-        if (distToGoal < 1200 || owner.role === PlayerRole.FORWARD) {
-            // ¡TIRO A PUERTA!
-            impulseX = -ballPos.x * 0.9; 
-            impulseZ = dirZ * 2600;
-            impulseY = 120;
-        } else if (receiver) {
-            // ¡PASE!
-            const targetPos = receiver.body.translation();
-            const dx = targetPos.x - ballPos.x;
-            const dz = targetPos.z - ballPos.z;
-            const dist = Math.hypot(dx, dz);
-            
-            impulseX = (dx / dist) * 1800;
-            impulseZ = (dz / dist) * 1800;
-            impulseY = 40;
-            console.log(`🎯 Pase de ${owner.role} a ${receiver.role}`);
-        } else {
-            // Despeje genérico
-            impulseX = (Math.random() - 0.5) * 500;
-            impulseZ = dirZ * 1400;
+        // ── 1. PORTERO: lanza el balón de vuelta al campo ──────────────────
+        if (owner.role === PlayerRole.GOALKEEPER) {
+            const receiver = this.findBestPass(owner, ballPos, atkDir, true);
+            if (receiver) {
+                impulse = this.calcPassImpulse(ballPos, receiver.body.translation(), 2200, 80);
+            } else {
+                // Saque largo al punto medio del campo
+                impulse = { x: (Math.random() - 0.5) * 400, y: 250, z: atkDir * 2000 };
+            }
+            this.kickCooldown = 60;
+            this.applyKick(impulse);
+            return;
         }
 
-        this.ball!.applyImpulse({ 
-            x: impulseX + (Math.random() - 0.5) * 200, 
-            y: impulseY, 
-            z: impulseZ + (Math.random() - 0.5) * 200 
-        });
-        this.kickCooldown = 40; 
+        // ── 2. DISPARO A PUERTA ────────────────────────────────────────────
+        // Condiciones: en área o cerca, o delantero con ángulo
+        const inShootingZone = distToGoal < 1600;
+        const hasShootAngle  = Math.abs(ownerPos.x) < 1200;
+
+        if (inShootingZone && hasShootAngle) {
+            // Disparo a la escuadra opuesta
+            const targetX = ownerPos.x < 0 ? 180 : -180;
+            const dx = targetX - ownerPos.x;
+            const dz = atkGoalZ - ownerPos.z;
+            const len = Math.hypot(dx, dz);
+            const power = 2800 + Math.random() * 400;
+            impulse = {
+                x: (dx / len) * power + (Math.random() - 0.5) * 150,
+                y: 100 + Math.random() * 80,
+                z: (dz / len) * power + (Math.random() - 0.5) * 150,
+            };
+            this.kickCooldown = 35;
+            this.applyKick(impulse);
+            return;
+        }
+
+        // ── 3. CENTRO DESDE LA BANDA ───────────────────────────────────────
+        const isWide     = Math.abs(ownerPos.x) > FIELD_W * 0.32;
+        const inAtkHalf  = (ownerPos.z * atkDir) > 0;
+        const hasRunnerInBox = this.players.some(p =>
+            p.team === owner.team &&
+            p.role === PlayerRole.FORWARD &&
+            Math.abs(p.body.translation().z - atkGoalZ) < 1800 &&
+            Math.abs(p.body.translation().x) < 900
+        );
+
+        if (isWide && inAtkHalf && hasRunnerInBox) {
+            // Cross bombeado al punto de penalti
+            const penX = ownerPos.x < 0 ? 300 : -300;
+            const penZ = atkGoalZ - atkDir * 1000;
+            const dx = penX - ownerPos.x;
+            const dz = penZ - ownerPos.z;
+            const len = Math.hypot(dx, dz);
+            impulse = {
+                x: (dx / len) * 2000,
+                y: 200,
+                z: (dz / len) * 2000,
+            };
+            this.kickCooldown = 40;
+            this.applyKick(impulse);
+            return;
+        }
+
+        // ── 4. PASE ────────────────────────────────────────────────────────
+        const receiver = this.findBestPass(owner, ballPos, atkDir, false);
+        if (receiver) {
+            impulse = this.calcPassImpulse(ballPos, receiver.body.translation(), 1900, 50);
+            this.kickCooldown = 38;
+            this.applyKick(impulse);
+            return;
+        }
+
+        // ── 5. CONDUCCIÓN (llevar el balón hacia adelante) ─────────────────
+        impulse = {
+            x: (Math.random() - 0.5) * 300,
+            y: 30,
+            z: atkDir * 1200,
+        };
+        this.kickCooldown = 45;
+        this.applyKick(impulse);
     }
 
-    private findPassReceiver(owner: Player, ballPos: any, dirZ: number): Player | null {
-        let bestReceiver: Player | null = null;
+    /**
+     * Encontrar el mejor receptor de pase:
+     * - Delante del pasador (en la dirección de ataque)
+     * - Sin oponente encima (espacio libre)
+     * - A distancia razonable
+     * - Con buen ángulo de continuidad
+     */
+    private findBestPass(
+        owner: Player,
+        ballPos: any,
+        atkDir: number,
+        longPass: boolean
+    ): Player | null {
+        let best: Player | null = null;
         let bestScore = -Infinity;
+        const ownerPos = owner.body.translation();
 
         this.players.forEach(p => {
-            if (p.team !== owner.team || p === owner || p.role === PlayerRole.GOALKEEPER) return;
-            
-            const targetPos = p.body.translation();
-            const dz = (targetPos.z - ballPos.z) * dirZ; // Distancia hacia adelante en el ataque
-            
-            // Solo pasar a alguien que esté por delante o cerca
-            if (dz > -200) {
-                const dist = Math.hypot(targetPos.x - ballPos.x, targetPos.z - ballPos.z);
-                if (dist > 300 && dist < 3500) {
-                    // Score basado en qué tan adelantado está y proximidad
-                    const score = dz - (dist * 0.2); 
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestReceiver = p;
-                    }
-                }
-            }
+            if (p.team !== owner.team || p === owner) return;
+            // Portero solo recibe si es saque del portero contrario
+            if (!longPass && p.role === PlayerRole.GOALKEEPER) return;
+
+            const pp = p.body.translation();
+            const forwardness = (pp.z - ownerPos.z) * atkDir; // positivo = más adelante
+            const dist = Math.hypot(pp.x - ballPos.x, pp.z - ballPos.z);
+
+            // Filtros
+            const maxDist = longPass ? 5000 : 3500;
+            const minDist = longPass ? 1000 : 250;
+            if (dist < minDist || dist > maxDist) return;
+            if (!longPass && forwardness < -400) return; // no pasar muy atrás
+
+            // Margen libre: comprobar si hay rival cerca del receptor
+            const opponents = this.players.filter(q => q.team !== owner.team);
+            const isMarked = opponents.some(opp => {
+                const op = opp.body.translation();
+                return Math.hypot(op.x - pp.x, op.z - pp.z) < 350;
+            });
+            if (isMarked) return;
+
+            // Puntuación: más adelante + espacio libre + distancia óptima
+            const distScore   = 1 - Math.abs(dist - 1500) / 3000;
+            const fwdScore    = forwardness / (FIELD_H / 2);
+            const roleBonus   = p.role === PlayerRole.FORWARD ? 0.4 :
+                                p.role === PlayerRole.MIDFIELDER ? 0.2 : 0;
+            const score = fwdScore * 2 + distScore * 1.5 + roleBonus;
+
+            if (score > bestScore) { bestScore = score; best = p; }
         });
-        return bestReceiver;
+        return best;
     }
 
-    /** Mantener el balón dentro del campo (rebote suave en bandas) */
-    private clampBallToField(ballPos: any) {
+    private calcPassImpulse(
+        from: any, to: any, power: number, loft: number
+    ): { x: number; y: number; z: number } {
+        const dx = to.x - from.x;
+        const dz = to.z - from.z;
+        const len = Math.hypot(dx, dz);
+        // Pequeño pase adelantado al movimiento del receptor
+        return {
+            x: (dx / len) * power + (Math.random() - 0.5) * 100,
+            y: loft,
+            z: (dz / len) * power + (Math.random() - 0.5) * 100,
+        };
+    }
+
+    private applyKick(impulse: { x: number; y: number; z: number }) {
+        this.ball!.applyImpulse(impulse);
+        // Pequeña separación entre el jugador y el balón tras el kick
+        if (this.ballOwner) {
+            const bpos = this.ball!.body.translation();
+            const ppos = this.ballOwner.body.translation();
+            const dx   = bpos.x - ppos.x;
+            const dz   = bpos.z - ppos.z;
+            const len  = Math.max(1, Math.hypot(dx, dz));
+            this.ball!.body.setTranslation({
+                x: ppos.x + (dx / len) * 80,
+                y: bpos.y,
+                z: ppos.z + (dz / len) * 80
+            }, true);
+        }
+    }
+
+    // ─────────────────────  LÍMITES DEL CAMPO  ───────────────────────────
+    private checkBallOut(ballPos: any) {
         const HW = FIELD_W / 2;
         const HH = FIELD_H / 2;
-        const vel = this.ball!.body.linvel();
+        const GW = GOAL_W  / 2;
 
-        if (Math.abs(ballPos.x) > HW - 30 && Math.sign(vel.x) === Math.sign(ballPos.x)) {
-            this.ball!.body.setLinvel({ x: -vel.x * 0.6, y: vel.y, z: vel.z }, true);
-        }
-        if (Math.abs(ballPos.z) > HH - 30 && Math.abs(ballPos.x) > GOAL_W / 2
-            && Math.sign(vel.z) === Math.sign(ballPos.z)) {
-            this.ball!.body.setLinvel({ x: vel.x, y: vel.y, z: -vel.z * 0.6 }, true);
+        if (Math.abs(ballPos.x) > HW + 80) {
+            this.startPhase('SAQUE DE BANDA', MatchPhase.THROW_IN, 1800, 0, 80, 0);
+        } else if (Math.abs(ballPos.z) > HH + 80 && Math.abs(ballPos.x) > GW) {
+            this.startPhase('SAQUE DE META', MatchPhase.GOAL_KICK, 2000,
+                0, 80,
+                (ballPos.z > 0 ? 1 : -1) * (HH - 600)
+            );
         }
     }
 
-    /** Detectar si el balón cruzó la línea de gol */
-    private checkGoals(ballPos: any) {
-        const HH = FIELD_H / 2;
-        const GW = GOAL_W / 2;
+    private triggerMatchPhase(msg: string, duration: number) {
+        this.isPaused = true;
+        const alert = document.getElementById('goal-alert');
+        if (alert) {
+            alert.classList.remove('hidden');
+            alert.textContent = `📢 ${msg}`;
+        }
+        
+        setTimeout(() => {
+            if (alert) alert.classList.add('hidden');
+            this.isPaused = false;
+        }, duration);
+    }
 
-        // Gol en portería norte (equipo local marca)
-        if (ballPos.z > HH + 50 && Math.abs(ballPos.x) < GW && ballPos.y < GOAL_H + 30) {
+    private startPhase(
+        msg: string, phase: MatchPhase,
+        delay: number, bx: number, by: number, bz: number
+    ) {
+        this.phaseBlocked = true;
+        this.matchPhase   = phase;
+        this.isPaused     = true;
+
+        const alert = document.getElementById('goal-alert');
+        if (alert) { alert.classList.remove('hidden'); alert.textContent = `📢 ${msg}`; }
+
+        setTimeout(() => {
+            if (alert) alert.classList.add('hidden');
+            this.ball!.reset(bx, by, bz);
+            this.ballOwner = null;
+            this.kickCooldown = 90;
+            this.players.forEach(p => p.resetToHome());
+            this.isPaused     = false;
+            this.matchPhase   = MatchPhase.PLAYING;
+            setTimeout(() => { this.phaseBlocked = false; }, 500);
+        }, delay);
+    }
+
+    // ─────────────────────────  GOLES  ───────────────────────────────────
+    private checkGoals(ballPos: any) {
+        if (this.isPaused) return;
+        const HH = FIELD_H / 2;
+        const GW = GOAL_W  / 2;
+
+        if (ballPos.z > HH + 40 && Math.abs(ballPos.x) < GW && ballPos.y < GOAL_H + 50) {
             this.onGoal(0);
         }
-        // Gol en portería sur (equipo visitante marca)
-        if (ballPos.z < -(HH + 50) && Math.abs(ballPos.x) < GW && ballPos.y < GOAL_H + 30) {
+        if (ballPos.z < -(HH + 40) && Math.abs(ballPos.x) < GW && ballPos.y < GOAL_H + 50) {
             this.onGoal(1);
         }
     }
 
     private onGoal(scoringTeam: number) {
+        if (this.isPaused) return; // evitar doble gol
         this.isPaused = true;
+
         if (scoringTeam === 0) this.score.local++; else this.score.away++;
 
-        // Celebración equipo goleador
         this.players.forEach(p => {
             if (p.team === scoringTeam) p.state = PlayerState.CELEBRATE;
         });
 
-        // Mostrar alerta en HUD
         const alert = document.getElementById('goal-alert');
         if (alert) {
             alert.classList.remove('hidden');
-            const teamName = scoringTeam === 0
+            const name = scoringTeam === 0
                 ? (this.localTeamData?.name || 'LOCAL')
-                : (this.awayTeamData?.name || 'VISITANTE');
-            alert.textContent = `⚽ GOL DE ${teamName.toUpperCase()}!`;
+                : (this.awayTeamData?.name  || 'VISITANTE');
+            alert.textContent = `⚽ GOOOL DE ${name.toUpperCase()}!`;
         }
 
         this.updateHUD();
 
         setTimeout(() => {
             if (alert) alert.classList.add('hidden');
-            this.resetAfterGoal();
-            this.isPaused = false;
-        }, 3000);
+            this.ball!.reset(0, 80, 0);
+            this.ballOwner = null;
+            this.kickCooldown = 150;
+            this.phaseBlocked = true;
+            this.players.forEach(p => { p.state = PlayerState.RETURN_TO_POS; p.resetToHome(); });
+            this.isPaused   = false;
+            this.matchPhase = MatchPhase.PLAYING;
+            setTimeout(() => { this.phaseBlocked = false; }, 800);
+        }, 3500);
     }
 
-    private resetAfterGoal() {
-        // Balón al centro
-        this.ball!.reset(0, 80, 0);
-        this.ballOwner = null;
-        this.kickCooldown = 120; // Pausa de 2s antes del próximo kick
-
-        // Todos los jugadores a sus posiciones de formación
-        this.players.forEach(p => {
-            p.state = PlayerState.RETURN_TO_POS;
-            p.resetToHome();
-        });
-    }
-
+    // ─────────────────────────  FALTAS  ──────────────────────────────────
     private checkFouls() {
         for (let i = 0; i < this.players.length; i++) {
             for (let j = i + 1; j < this.players.length; j++) {
-                const a = this.players[i];
-                const b = this.players[j];
+                const a = this.players[i], b = this.players[j];
                 if (a.team === b.team) continue;
-
-                const pa = a.body.translation();
-                const pb = b.body.translation();
-                if (Math.hypot(pa.x - pb.x, pa.z - pb.z) > 55) continue;
-
-                const va = a.body.linvel();
-                const vb = b.body.linvel();
+                const pa = a.body.translation(), pb = b.body.translation();
+                if (Math.hypot(pa.x - pb.x, pa.z - pb.z) > 60) continue;
+                const va = a.body.linvel(), vb = b.body.linvel();
                 const relSpd = Math.hypot(va.x - vb.x, va.z - vb.z);
-
-                // Falta si hay choque fuerte (>700 u/s relativo) con cierta probabilidad
-                if (relSpd > 700 && Math.random() < 0.04) {
+                if (relSpd > 750 && Math.random() < 0.03) {
                     this.triggerFoul(a, b);
-                    return; // Solo una falta por frame
+                    return;
                 }
             }
         }
     }
 
-    private triggerFoul(a: Player, b: Player) {
-        this.isPaused = true;
-        this.foulCooldown = 300; // 5s cooldown antes de detectar otra falta
-
+    private triggerFoul(_a: Player, _b: Player) {
+        this.isPaused    = true;
+        this.foulCooldown = 360;
         const panel = document.getElementById('decision-panel');
         if (panel) panel.classList.remove('hidden');
-
-        // Indicar sobre qué jugadores ocurrió (para debug o indicador visual futuro)
-        console.log(`⚠️ Falta: Equipo ${a.team} vs Equipo ${b.team}`);
-
         const btns = document.querySelectorAll('[data-action]');
         const onDecision = (e: Event) => {
             const action = (e.currentTarget as HTMLElement).getAttribute('data-action');
             if (panel) panel.classList.add('hidden');
-            btns.forEach(btn => btn.removeEventListener('click', onDecision));
-
-            // Ajustar autoridad del árbitro según decisión
+            btns.forEach(b => b.removeEventListener('click', onDecision));
             this.applyRefereeDecision(action || 'play-on');
             this.isPaused = false;
         };
-
-        btns.forEach(btn => btn.addEventListener('click', onDecision));
+        btns.forEach(b => b.addEventListener('click', onDecision));
     }
 
     private applyRefereeDecision(action: string) {
-        const authBar = document.getElementById('authority-bar');
-        if (!authBar) return;
-        
-        let currentWidth = parseFloat(authBar.style.width || '70');
-        switch (action) {
-            case 'play-on':    currentWidth = Math.min(100, currentWidth + 2); break;
-            case 'foul':       currentWidth = Math.min(100, currentWidth + 5); break;
-            case 'yellow':     currentWidth = Math.min(100, currentWidth + 3); break;
-            case 'red':        currentWidth = Math.max(10,  currentWidth - 3); break;
-        }
-        authBar.style.width = `${currentWidth}%`;
+        const bar = document.getElementById('authority-bar');
+        if (!bar) return;
+        let w = parseFloat(bar.style.width || '70');
+        if (action === 'play-on') w = Math.min(100, w + 2);
+        if (action === 'foul')    w = Math.min(100, w + 5);
+        if (action === 'yellow')  w = Math.min(100, w + 3);
+        if (action === 'red')     w = Math.max(10,  w - 3);
+        bar.style.width = `${w}%`;
     }
 
-    // ────────────────────────  HUD  ───────────────────────────
+    // ─────────────────────────  HUD  ─────────────────────────────────────
     private updateHUD() {
         const timeEl  = document.getElementById('hud-time');
         const scoreEl = document.getElementById('hud-score');
         if (!timeEl || !scoreEl) return;
-
         const ratio = Math.min(1, this.matchTime / this.MATCH_DURATION);
-        const displayMin = Math.floor(ratio * 90);
-        const displaySec = Math.floor((ratio * 90 * 60) % 60);
-        timeEl.textContent  = `${displayMin.toString().padStart(2, '0')}:${displaySec.toString().padStart(2, '0')}`;
+        const min   = Math.floor(ratio * 90);
+        const sec   = Math.floor((ratio * 90 * 60) % 60);
+        timeEl.textContent  = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
         scoreEl.textContent = `${this.score.local} - ${this.score.away}`;
-
-        // Actualizar nombres de equipos en HUD
-        const localNameEl = document.getElementById('local-name');
-        const awayNameEl  = document.getElementById('away-name');
-        if (localNameEl && this.localTeamData) localNameEl.textContent = this.localTeamData.name || 'LOCAL';
-        if (awayNameEl  && this.awayTeamData)  awayNameEl.textContent  = this.awayTeamData.name  || 'VISITANTE';
+        const ln = document.getElementById('local-name');
+        const an = document.getElementById('away-name');
+        
+        let localName = this.localTeamData?.name || 'LOCAL';
+        let awayName  = this.awayTeamData?.name  || 'VISITANTE';
+        
+        if (localName === awayName) {
+            localName += ' [L]';
+            awayName  += ' [V]';
+        }
+        
+        if (ln) ln.textContent = localName;
+        if (an) an.textContent = awayName;
     }
 
     private endMatch() {
         this.isRunning = false;
-
         const result = document.getElementById('match-result');
-        if (result) {
-            const winner = this.score.local > this.score.away
-                ? (this.localTeamData?.name || 'LOCAL')
-                : this.score.away > this.score.local
-                    ? (this.awayTeamData?.name || 'VISITANTE')
-                    : 'EMPATE';
-
-            result.innerHTML = `
-                <div class="result-card">
-                    <h1>FIN DEL PARTIDO</h1>
-                    <div class="result-score">${this.score.local} - ${this.score.away}</div>
-                    <div class="result-winner">${winner === 'EMPATE' ? '🤝 Empate' : `🏆 Ganador: ${winner}`}</div>
-                    <button onclick="location.reload()">NUEVO PARTIDO</button>
-                </div>
-            `;
-            result.classList.remove('hidden');
-        }
+        if (!result) return;
+        const winner = this.score.local > this.score.away
+            ? (this.localTeamData?.name || 'LOCAL')
+            : this.score.away > this.score.local
+                ? (this.awayTeamData?.name || 'VISITANTE')
+                : 'EMPATE';
+        result.innerHTML = `
+            <div class="result-card">
+                <h1>FIN DEL PARTIDO</h1>
+                <div class="result-score">${this.score.local} - ${this.score.away}</div>
+                <div class="result-winner">${winner === 'EMPATE' ? '🤝 Empate' : `🏆 Ganador: ${winner}`}</div>
+                <button onclick="location.reload()">NUEVO PARTIDO</button>
+            </div>`;
+        result.classList.remove('hidden');
     }
 
-    /** Busca el jugador más cercano al balón para asignarle rol de Chaser */
-    private getClosestPlayer(ballPos: any, team: number): Player | null {
+    // ─────────────────────  UTILIDADES  ──────────────────────────────────
+    private getClosestToball(ballPos: any, team: number): Player | null {
         let closest: Player | null = null;
         let minDist = Infinity;
         this.players.forEach(p => {
             if (p.team !== team || p.role === PlayerRole.GOALKEEPER) return;
-            const pos = p.body.translation();
-            const d = Math.hypot(pos.x - ballPos.x, pos.z - ballPos.z);
-            if (d < minDist) {
-                minDist = d;
-                closest = p;
-            }
+            const pp = p.body.translation();
+            const d  = Math.hypot(pp.x - ballPos.x, pp.z - ballPos.z);
+            if (d < minDist) { minDist = d; closest = p; }
         });
         return closest;
     }
 
-    public pause() {
-        this.isPaused = !this.isPaused;
-    }
+    public pause() { this.isPaused = !this.isPaused; }
 }

@@ -33,11 +33,11 @@ body {
 }
 
 .glass-module {
-  background: var(--panel-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
   border-radius: 24px;
 }
 
@@ -276,12 +276,19 @@ select:hover { border-color: var(--accent); }
 
 .team-name { font-weight: 800; font-size: 1.1rem; }
 .score-display {
-  font-size: 2rem;
+  font-size: 2.8rem;
   font-weight: 900;
   margin: 0 1.5rem;
   font-family: 'Outfit', sans-serif;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
+  text-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
+  animation: glow-pulse 2s infinite alternate;
+}
+
+@keyframes glow-pulse {
+  from { text-shadow: 0 0 10px rgba(250, 204, 21, 0.2); }
+  to { text-shadow: 0 0 25px rgba(250, 204, 21, 0.6); }
 }
 .match-time {
   font-weight: 600;

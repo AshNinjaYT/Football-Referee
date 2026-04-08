@@ -61,7 +61,7 @@ export class Physics {
         const desc = RAPIER.RigidBodyDesc.dynamic()
             .setTranslation(x, y, z)
             .lockRotations()
-            .setLinearDamping(8.0)  // Alta fricción → se para rápido al soltar tecla
+            .setLinearDamping(5.5)  // Reducido de 8.0 para más inercia/fluidez
             .setCcdEnabled(true);
 
         const body = this.world.createRigidBody(desc);
